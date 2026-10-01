@@ -1,0 +1,475 @@
+# 작업허가 검토 에이전트 — 규칙 파일 초안 v0.1
+# 대상: 정비작업(일반위험작업), 화기작업(용접·용단·연마·드릴)
+# 원칙: 출처 없는 규칙은 로드 거부. 판정 강도는 근거 등급의 상한을 넘을 수 없다.
+# 원문 사본은 저장소에 포함하지 않음 (출처 목록은 아래 sources)
+
+meta:
+  version: "0.1-draft"
+  as_of: "2026-09-29"
+  risk_assessment_method: "체크리스트법"   # 고시 제7조⑤2호. 3x3 행렬은 의무 아님
+  risk_assessment_method_source: NOTICE-RA-7
+  # 판정 강도 순서 (강 → 약)
+  action_order: [reject, conditional, human_review, warn]
+  # 근거 등급별 최대 판정 강도 (2026-09-29 결정: KOSHA 권고 = 조건부 승인까지)
+  grade_policy:
+    법정: reject
+    고시: reject
+    KOSHA권고: conditional
+    행정지침: conditional
+    해외: warn
+    설계: human_review
+  design_principles:
+    - id: DP-01
+      text: "LLM은 규칙 판정을 완화할 수 없고 강화만 할 수 있다. LLM 판단은 출처 없는 '설계' 등급이므로 최대 human_review(사람 판단 요청)까지"
+      grade: 설계
+    - id: DP-02
+      text: "최종 허가 서명은 사람(허가권자)이 한다. 에이전트 출력은 '허가 검토'다"
+      grade: 설계
+    - id: DP-03
+      text: "측정값·조회값이 없으면 합격 처리하지 않고 human_review로 보낸다"
+      grade: 설계
+
+# ─────────────────────────────────────────────
+# 근거 문서
+# ─────────────────────────────────────────────
+sources:
+  SR-37:
+    title: "산업안전보건기준에 관한 규칙 제37조(악천후 및 강풍 시 작업 중지)"
+    grade: 법정
+    version: "고용노동부령 제450호 [시행 2026.3.2]"
+    quote: "비ㆍ눈ㆍ바람 또는 그 밖의 기상상태의 불안정으로 인하여 근로자가 위험해질 우려가 있는 경우 작업을 중지"
+    note: "①항은 수치 없음. 10·15m/s는 ②항 타워크레인 전용이므로 화기작업에 쓰지 않는다"
+  SR-92:
+    title: "산업안전보건기준에 관한 규칙 제92조(정비 등의 작업 시의 운전정지 등)"
+    grade: 법정
+    version: "[시행 2026.3.2]"
+    quote: "①운전을 정지하여야 한다 ②기동장치에 잠금장치를 하고 그 열쇠를 별도 관리하거나 표지판을 설치하는 등 ④압축된 기체 또는 액체 등이 방출되어…미리 방출시키는 등"
+  SR-104:
+    title: "산업안전보건기준에 관한 규칙 제104조(금형조정작업의 위험 방지)"
+    grade: 법정
+    version: "[시행 2026.3.2]"
+    quote: "금형을 부착ㆍ해체 또는 조정하는 작업…신체가 위험한계 내에 있는 경우…안전블록을 사용하는 등"
+  SR-236:
+    title: "산업안전보건기준에 관한 규칙 제236조②(화재 위험이 있는 작업의 장소 등)"
+    grade: 법정
+    version: "[시행 2026.3.2]"
+    quote: "화재위험작업…작업에 필요한 양 이외의 가연물은 화재위험이 없는 장소에 별도로 보관"
+  SR-241:
+    title: "산업안전보건기준에 관한 규칙 제241조(화재위험작업 시의 준수사항)"
+    grade: 법정
+    version: "[시행 2026.3.2]"
+    quote: "②3 방호조치 및 소화기구 비치 ②4 비산방지덮개, 용접방화포(성능인증품) ②5 인화성 가스 잔류 방지 환기 ③작업 시작 전 확인 ④작업내용·작업일시 등 서면 게시"
+  SR-241-2:
+    title: "산업안전보건기준에 관한 규칙 제241조의2(화재감시자)"
+    grade: 법정
+    version: "[시행 2026.3.2]"
+    quote: "작업반경 11미터 이내에 건물구조 자체나 내부…가연성물질이 있는 장소…다만, 같은 장소에서 상시ㆍ반복적으로 용접ㆍ용단작업을 할 때 경보용 설비ㆍ기구, 소화설비 또는 소화기가 갖추어진 경우에는…배치하지 않을 수 있다"
+  SR-296:
+    title: "산업안전보건기준에 관한 규칙 제296조(지하작업장 등)"
+    grade: 법정
+    version: "[시행 2026.3.2]"
+    quote: "가스의 농도가 인화하한계 값의 25퍼센트 이상으로 밝혀진 경우에는 즉시 근로자를 안전한 장소에 대피"
+    note: "지하작업장·가스도관 굴착 한정. 일반 공장 화기작업의 법정 LEL 기준이 아님"
+  SR-559:
+    title: "산업안전보건기준에 관한 규칙 제559조④·제562조②(폭염작업 정의·기록)"
+    grade: 법정
+    version: "[시행 2026.3.2], 2025.7.17 신설"
+    quote: "체감온도…31도 이상이 되는 작업장소에서의 장시간 작업 / 일자별 체감온도·조치 기록, 12월 31일까지 보관"
+  SR-560:
+    title: "산업안전보건기준에 관한 규칙 제560조③(폭염작업 휴식)"
+    grade: 법정
+    version: "2025.7.17 시행"
+    quote: "체감온도 33도 이상인 작업장소에서 폭염작업을 하는 경우에는 매 2시간 이내에 20분 이상의 휴식"
+    note: "개인 냉방·보냉장구 지급 시 예외(단서)"
+  SR-618:
+    title: "산업안전보건기준에 관한 규칙 제618조제3호(적정공기)"
+    grade: 법정
+    version: "[시행 2026.3.2]"
+    quote: "산소농도 18퍼센트 이상 23.5퍼센트 미만, 이산화탄소 1.5퍼센트 미만, 일산화탄소 30피피엠 미만, 황화수소 10피피엠 미만"
+  EDU-B5:
+    title: "산업안전보건법 시행규칙 별표 5 제1호라목(특별교육 대상 작업)"
+    grade: 법정
+    version: "고용노동부령 제477호 [시행 2026.8.1], 별표5 개정 2025.5.30"
+    quote: "2. 아세틸렌 용접장치 또는 가스집합 용접장치…용접ㆍ용단 / 3. 밀폐된 장소…용접작업 또는 습한 장소 전기용접 / 11. 동력 프레스기계를 5대 이상 보유한 사업장에서 해당 기계로 하는 작업 / 38. 가연물이 있는 장소에서 하는 화재위험작업"
+  NOTICE-RA-7:
+    title: "고용노동부고시 제2024-76호 사업장 위험성평가에 관한 지침 제7조⑤"
+    grade: 고시
+    version: "[시행 2025.1.2]"
+    quote: "빈도ㆍ강도법 / 체크리스트법 / 위험성 수준 3단계 판단법 / 핵심요인 기술법 중 한 가지 이상을 선정"
+  CC49:
+    title: "KOSHA GUIDE C-C-49-2026 안전작업허가에 관한 기술지원규정"
+    grade: KOSHA권고
+    version: "2026-01-30 공표 (P-94-2021 대체)"
+    clauses:
+      "3(가)": "화기작업 = 용접, 용단, 연마, 드릴 등 화염 또는 스파크를 발생시키는 작업"
+      "3(나)": "일반위험작업 = 화기작업 이외…위험설비 해체작업 등 유해·위험이 내재된 작업"
+      "5.6": "허가서 효력은 허가기간에서만 유지, 일일 정상근무시간 초과 불가. 익일 지속·내용·조건 변경 시 재발급"
+      "6.1": "허가 전 점검 14항목"
+      "6.2(5)": "절차서가 없으면 반드시 작업 전 위험성평가"
+      "6.2(6)": "작업대상이 작업허가 대상과 일치하는지 확인"
+      "7.1(2)": "화기작업 중 밀폐공간·정전·굴착·방사선·고소·중장비 병행 시 보충작업허가"
+      "7.1(3)": "화기작업 사전 안전조치 (작업구역 설정, 가스농도 측정, 출입제한, 식별표시, 위험물 방출, 환기, 비산불티차단막, 입회, 소화설비)"
+  AG14:
+    title: "KOSHA GUIDE A-G-14-2026 용접·용단 작업 시 화재예방에 관한 기술지원규정"
+    grade: KOSHA권고
+    version: "2026-01-30 공표"
+    clauses:
+      "7.1(17)": "작업종료 후 적어도 30분 동안은 화재 감시를 해야 한다"
+  P35:
+    title: "KOSHA GUIDE P-35-2012 소규모 사업장의 화기작업 안전에 관한 기술지침"
+    grade: KOSHA권고
+    version: "2012 (현행)"
+    clauses:
+      "3(마)": "허용농도 = 가연성 증기나 가스의 경우 폭발하한의 10% 이하"
+      "5.2(1)": "가스농도를 4시간마다 반복 측정하여 폭발하한의 10%에 도달할 경우 화기작업을 중단"
+  BM25:
+    title: "KOSHA GUIDE B-M-25-2026 에너지 차단장치의 잠금·표지에 관한 기술지원규정"
+    grade: KOSHA권고
+    version: "2026-01-30 공표 (E-91-2016 대체)"
+    clauses:
+      "5.2": "잠금이 가능한 모든 에너지 차단장치는 반드시 잠금. 표지만 사용은 잠금이 물리적으로 불가능할 때"
+      "5.4(4)": "설비별 절차서: 에너지원 종류·위치, 차단·해제 순서, 검증 방법"
+      "6.5": "저장 또는 축적된 에너지의 관리"
+      "6.6": "차단 확인"
+  BM36:
+    title: "KOSHA GUIDE B-M-36-2026 프레스 위험방지에 관한 기술지원규정"
+    grade: KOSHA권고
+    version: "2026-01-30 공표"
+    clauses:
+      "6.5(2)": "금형 설치 전 검사 6항목 (위험성평가, 프레스 적합성, 다이하이트, 상형 고정방법, 설치 시·시운전 시 방호장치)"
+      "6.5(5)(라)": "위험지역에 신체 일부가 놓일 때는 항상 안전블럭과 LOTO 절차"
+  BM37:
+    title: "KOSHA GUIDE B-M-37-2026 회전기계 등의 끼임·절단재해 예방을 위한 기술지원규정"
+    grade: KOSHA권고
+    version: "2026-01-30 공표, ISO 20816-3 인용"
+    clauses:
+      "6.2(6)": "경계값 범위(비회전부 속도 rms): A-B 0.71~4.5, B-C 1.8~9.3, C-D 4.5~14.7 mm/s"
+      "6.2(8)": "경보치는 B-C 경계보다 작게, B구역 상한의 1.25배 이하. 변화가 B구역 상한의 25% 초과 시에도 경보"
+      "6.2(9)": "비상정지 값은 C구역 상한의 1.25배 이하"
+  MOEL-HEAT-2026:
+    title: "고용노동부 '26년 폭염 대비 온열질환 예방을 위한 사업장 대응지침"
+    grade: 행정지침
+    version: "2026-05-13"
+    quote: "35℃ 이상 14~17시 옥외작업 중지 / 38℃ 이상 긴급작업 외 옥외작업 중지"
+  PSM-46:
+    title: "고용노동부고시 제2025-30호 공정안전보고서 규정 제46조"
+    grade: 고시
+    version: "[시행 2025.5.30]"
+    quote: "인접 작업자에게 통보 / 작업 완료 후 1년간 보관"
+    note: "PSM 대상 사업장에만 적용"
+  SYS:
+    title: "본 시스템 설계값 (법규 아님)"
+    grade: 설계
+    version: "0.1"
+
+# ─────────────────────────────────────────────
+# 작업 분류 (신청 구조화 단계에서 사용)
+# ─────────────────────────────────────────────
+classification:
+  hot_work:
+    keywords: [용접, 용단, 절단, 연마, 그라인더, 드릴, 가스절단, 아크]
+    source: CC49
+    clause: "3(가)"
+  maintenance:
+    description: "정비·수리·청소·검사·교체·조정, 금형 부착·해체·조정"
+    source: SR-92
+    permit_type: "일반위험작업허가"
+    permit_type_source: CC49
+    permit_type_clause: "3(나)"
+
+# 검증 계획 단계: LLM Planner는 신청마다 14항목 전부에 해당/비해당/모름 + 이유를 채운다
+planning_checklist:
+  source: CC49
+  clause: "6.1"
+  items:
+    - {item: 1, text: "밀폐공간 내 작업 여부", triggers: [H-12]}
+    - {item: 2, text: "안전상 정전(전기차단) 필요 여부", triggers: [H-13, M-02a]}
+    - {item: 3, text: "굴착작업 병행 여부", triggers: []}
+    - {item: 4, text: "방사선사용 작업 여부", triggers: []}
+    - {item: 5, text: "위험지역 대신 안전한 장소에서 작업 가능 여부", triggers: []}
+    - {item: 6, text: "인화성·독성물질 발생 가능성, 처리·세정방법 적정성", triggers: [H-04, H-08]}
+    - {item: 7, text: "잠긴 밸브·막힌 배관 사이 액체 열팽창 가능성", triggers: [M-03]}
+    - {item: 8, text: "내부구조상 유해·위험물질 잔류 가능성", triggers: [M-03, H-04]}
+    - {item: 9, text: "산소·유해가스 농도 측정 및 강제환기 필요성", triggers: [H-08, H-12]}
+    - {item: 10, text: "초기 소화설비 배치계획", triggers: [H-02]}
+    - {item: 11, text: "출입 제한구역 계획", triggers: [H-05]}
+    - {item: 12, text: "작업 중 현장 입회자 필요 여부", triggers: [H-01]}
+    - {item: 13, text: "고소작업 사고예방대책", triggers: []}
+    - {item: 14, text: "중장비 작업 사고예방대책", triggers: []}
+  unknown_policy: human_review   # '모름'이 남으면 사용자에게 되묻고, 그래도 모르면 사람 판단
+
+# ─────────────────────────────────────────────
+# 판정 규칙
+#   check: 도구 조회 결과에 대한 조건 (true면 통과)
+#   on_fail: 불통과 시 판정 (grade_policy 상한 이하)
+#   conditions: conditional일 때 요구하는 조치와 재검증 방법
+# ─────────────────────────────────────────────
+rules:
+
+  # ── 공통 ──
+  - id: C-01
+    name: "작업 대상과 허가 대상 일치"
+    work_types: [maintenance, hot_work]
+    check: {tool: equipment_status, expr: "request.equipment_id == equipment.id and equipment.location == request.location"}
+    on_fail: conditional
+    conditions: ["신청 작업 장소를 설비가 있는 구역으로 정정"]
+    source: CC49
+    clause: "6.2(6)"
+  - id: C-02
+    name: "허가 효력은 당일 정상근무시간 이내"
+    work_types: [maintenance, hot_work]
+    check: {tool: request, expr: "request.start.date == request.end.date and request.start < request.end and shift.start <= request.start.time and request.end.time <= shift.end"}
+    on_fail: conditional
+    conditions: ["허가기간을 근무시간 이내로 수정하거나, 익일분은 재신청"]
+    source: CC49
+    clause: "5.6"
+  - id: C-03
+    name: "작업절차서 없으면 작업 전 위험성평가"
+    work_types: [maintenance, hot_work]
+    check: {tool: procedures, expr: "procedure.exists or risk_assessment.done_for_request"}
+    on_fail: conditional
+    conditions: ["체크리스트법 위험성평가 작성·작업자 교육 완료 확인"]
+    source: CC49
+    clause: "6.2(5)"
+  - id: C-04
+    name: "폭염작업 휴식 (체감 33℃ 이상)"
+    work_types: [maintenance, hot_work]
+    applies_when: "weather.feels_like_max >= 33"
+    check: {tool: request, expr: "request.rest_plan_2h_20m or request.personal_cooling_gear"}
+    on_fail: conditional
+    conditions: ["매 2시간 이내 20분 이상 휴식 계획을 허가 조건에 명시"]
+    source: SR-560
+  - id: C-05
+    name: "폭염작업 기록 (체감 31℃ 이상)"
+    work_types: [maintenance, hot_work]
+    applies_when: "weather.feels_like_max >= 31"
+    check: {tool: system, expr: "log.heat_record_written"}
+    on_fail: warn
+    note: "시스템이 일자별 체감온도·조치를 자동 기록해 충족"
+    source: SR-559
+  - id: C-06
+    name: "옥외 폭염 단계 (35℃ / 38℃)"
+    work_types: [maintenance, hot_work]
+    applies_when: "request.outdoor and weather.feels_like_max >= 35"
+    check: {tool: request, expr: "not (weather.feels_like_max >= 38 and not request.emergency) and not (request.time_overlaps('14:00','17:00'))"}
+    on_fail: conditional
+    conditions: ["35℃ 이상: 14~17시 옥외작업 제외", "38℃ 이상: 긴급작업 사유 기재 필요"]
+    source: MOEL-HEAT-2026
+  - id: C-07
+    name: "악천후 (정성 판단)"
+    work_types: [maintenance, hot_work]
+    applies_when: "request.outdoor and weather.warning_active"
+    check: {tool: weather, expr: "false"}      # 수치 기준 없음 → 항상 사람 판단
+    on_fail: human_review
+    note: "법령에 옥외 화기작업 풍속 수치 없음. 자동 불합격 금지"
+    source: SR-37
+
+  # ── 정비작업 ──
+  - id: M-01
+    name: "운전 정지"
+    work_types: [maintenance]
+    check: {tool: equipment_status, expr: "equipment.running == false"}
+    on_fail: reject
+    source: SR-92
+    clause: "①"
+  - id: M-02a
+    name: "기동장치 잠금 또는 표지 (법정 최소)"
+    work_types: [maintenance]
+    check: {tool: loto_registry, expr: "all(p.locked or p.tagged for p in equipment.isolation_points)"}
+    on_fail: reject
+    source: SR-92
+    clause: "②"
+  - id: M-02b
+    name: "잠금 가능하면 잠금 (표지만 사용 금지)"
+    work_types: [maintenance]
+    check: {tool: loto_registry, expr: "all(p.locked for p in equipment.isolation_points if p.lockable)"}
+    on_fail: conditional
+    conditions: ["잠금장치 체결 사진 제출 → 재검증"]
+    source: BM25
+    clause: "5.2"
+  - id: M-03
+    name: "잔압·잔류에너지 방출"
+    work_types: [maintenance]
+    applies_when: "equipment.has_stored_energy"   # 유압·공압·스프링·중력(슬라이드)
+    check: {tool: loto_registry, expr: "equipment.stored_energy_released == true"}
+    on_fail: reject
+    source: SR-92
+    clause: "④"
+  - id: M-04
+    name: "차단 확인 (시동 시험 등)"
+    work_types: [maintenance]
+    check: {tool: loto_registry, expr: "check.isolation_verified and check.checked_at >= max(p.updated_at for p in isolation_points if p.locked or p.tagged)"}
+    note: "차단 확인은 마지막 잠금·표지 변경 이후여야 유효 (B-M-25 6.4→6.6 순서)"
+    on_fail: conditional
+    conditions: ["차단 확인 결과(시동 시도·계측값) 기록 제출"]
+    source: BM25
+    clause: "6.6"
+  - id: M-05
+    name: "설비별 LOTO 절차서"
+    work_types: [maintenance]
+    check: {tool: procedures, expr: "procedure.loto_for(equipment.id).exists"}
+    on_fail: conditional
+    conditions: ["에너지원·차단순서·검증방법이 담긴 절차서 작성"]
+    source: BM25
+    clause: "5.4(4)"
+  - id: M-06
+    name: "금형 작업 안전블록"
+    work_types: [maintenance]
+    applies_when: "request.task in ['금형부착','금형해체','금형조정'] and request.body_in_danger_zone"
+    check: {tool: request, expr: "request.safety_block_used == true"}
+    on_fail: reject
+    source: SR-104
+  - id: M-07
+    name: "금형 설치 전 검사 6항목"
+    work_types: [maintenance]
+    applies_when: "request.task == '금형부착'"
+    check: {tool: request, expr: "request.die_precheck_completed == 6"}
+    on_fail: conditional
+    conditions: ["다이하이트·상형 고정방법·방호장치 등 6항목 체크 제출"]
+    source: BM36
+    clause: "6.5(2)"
+  - id: M-08
+    name: "프레스 작업 특별교육 이수"
+    work_types: [maintenance]
+    applies_when: "site.power_press_count >= 5 and equipment.type == 'press'"
+    check: {tool: training_records, expr: "all(w.has_special_training('B5-11') for w in request.workers)"}
+    on_fail: reject
+    source: EDU-B5
+    clause: "11호"
+  - id: M-09
+    name: "진동 상태 (ISO 20816-3 영역)"
+    work_types: [maintenance]
+    check: {tool: equipment_sensor, expr: "equipment.vib_rms < equipment.zone_bc_limit"}
+    on_fail: human_review
+    note: "경계값은 설비 마스터에 설비별로 등록 (B-M-37 범위 내). C/D 영역이면 정비 범위에 진동 원인 점검 포함 권고"
+    source: BM37
+    clause: ["6.2(6)", "6.2(8)", "6.2(9)"]
+
+  # ── 화기작업 ──
+  - id: H-01
+    name: "11m 이내 가연물 있으면 화재감시자 배치"
+    work_types: [hot_work]
+    applies_when: "site_map.combustibles_within(request.location, 11) and not (zone.routine_hot_work and zone.alarm_and_extinguisher)"
+    check: {tool: request, expr: "request.fire_watch_assigned == true"}
+    on_fail: reject
+    source: SR-241-2
+  - id: H-02
+    name: "소화기구 비치"
+    work_types: [hot_work]
+    check: {tool: request, expr: "request.extinguisher_placed == true"}
+    on_fail: reject
+    source: SR-241
+    clause: "②3"
+  - id: H-03
+    name: "불티 비산방지 (성능인증 방화포)"
+    work_types: [hot_work]
+    check: {tool: request, expr: "request.spark_barrier in ['인증방화포','비산방지덮개']"}
+    on_fail: reject
+    source: SR-241
+    clause: "②4"
+  - id: H-04
+    name: "인화성 가스 잔류 방지 환기"
+    work_types: [hot_work]
+    applies_when: "planning.item6 == '해당' or planning.item8 == '해당'"
+    check: {tool: request, expr: "request.ventilation_done == true"}
+    on_fail: reject
+    source: SR-241
+    clause: "②5"
+  - id: H-05
+    name: "작업 전 확인 및 서면 게시"
+    work_types: [hot_work]
+    check: {tool: system, expr: "permit.posted_notice_generated"}
+    on_fail: warn
+    note: "시스템이 게시문을 자동 생성해 충족"
+    source: SR-241
+    clause: "③④"
+  - id: H-06
+    name: "필요량 외 가연물 격리"
+    work_types: [hot_work]
+    check: {tool: request, expr: "request.excess_combustibles_removed == true"}
+    on_fail: conditional
+    conditions: ["작업 필요량 외 가연물 이동 완료 확인"]
+    source: SR-236
+  - id: H-07
+    name: "지하작업장·가스도관 굴착: 인화하한계 25% 이상 대피"
+    work_types: [hot_work]
+    applies_when: "request.location_type in ['지하작업장','가스도관굴착']"
+    check: {tool: gas_reading, expr: "gas.lel_percent < 25 and max(request.start, now) - gas.ts <= 4h"}
+    on_fail: reject
+    source: SR-296
+  - id: H-08
+    name: "가연성 가스 폭발하한 10% 미만"
+    work_types: [hot_work]
+    check: {tool: gas_reading, expr: "gas.lel_percent < 10 and max(request.start, now) - gas.ts <= 4h"}
+    note: "측정값은 작업 시작 기준 4시간 이내여야 함 (P-35 5.2(1) '작업 전 및 작업 중 4시간마다')"
+    on_fail: conditional          # 2026-09-29 결정: KOSHA 권고 기준 → 조건부 승인
+    conditions: ["환기 후 재측정, 폭발하한 10% 미만 확인값 제출 → 재검증"]
+    source: P35
+    clause: ["3(마)", "5.2(1)"]
+  - id: H-09
+    name: "작업 중 가스 재측정 (4시간마다)"
+    work_types: [hot_work]
+    applies_when: "request.duration_hours > 4"
+    check: {tool: request, expr: "request.gas_remeasure_plan_4h == true"}
+    on_fail: conditional
+    conditions: ["4시간 주기 재측정 계획을 허가 조건에 명시"]
+    source: P35
+    clause: "5.2(1)"
+  - id: H-10
+    name: "작업 후 30분 화재감시"
+    work_types: [hot_work]
+    check: {tool: request, expr: "request.post_work_fire_watch_min >= 30"}
+    on_fail: conditional
+    conditions: ["작업 종료 후 30분 이상 화재감시 계획 명시"]
+    source: AG14
+    clause: "7.1(17)"
+  - id: H-11
+    name: "화재위험작업 특별교육 이수"
+    work_types: [hot_work]
+    applies_when: "site_map.combustibles_within(request.location, 11)"
+    check: {tool: training_records, expr: "all(w.has_special_training('B5-38') for w in request.workers)"}
+    on_fail: reject
+    source: EDU-B5
+    clause: "38호"
+  - id: H-12
+    name: "밀폐공간 병행 시 적정공기"
+    work_types: [hot_work]
+    applies_when: "planning.item1 == '해당'"
+    check: {tool: gas_reading, expr: "18 <= gas.o2 < 23.5 and gas.co2 < 1.5 and gas.co_ppm < 30 and gas.h2s_ppm < 10"}
+    on_fail: reject
+    also_requires: ["보충작업허가: 밀폐공간출입 (CC49 7.1(2)(가))", "특별교육 별표5 3호"]
+    source: SR-618
+  - id: H-13
+    name: "전기설비 정비 병행 시 정전작업 보충허가"
+    work_types: [hot_work]
+    applies_when: "planning.item2 == '해당'"
+    check: {tool: permits_today, expr: "exists(p.type == '정전작업' and p.equipment_id == request.equipment_id)"}
+    on_fail: conditional
+    conditions: ["정전작업 보충허가 발급"]
+    source: CC49
+    clause: "7.1(2)"
+
+  # ── 동시작업 (근거 조합 해석 → 설계 등급) ──
+  - id: X-01
+    name: "화기작업 11m 이내 가연물 취급 작업 동시 허가"
+    work_types: [hot_work]
+    check: {tool: permits_today, expr: "not exists(p.handles_combustibles and distance(p.location, request.location) <= 11 and p.time_overlaps(request))"}
+    on_fail: human_review
+    note: "반려 의무 규정 없음. H-01(화재감시자)·H-06(가연물 격리)을 자동 적용한 뒤 사람이 판단. 해당 작업자에게 통보"
+    basis: [SR-241-2, SR-236, PSM-46]
+    source: SYS
+
+# ─────────────────────────────────────────────
+# 시스템 설정값 (안전 규칙 아님, 발표 시 '설계값'으로 구분)
+# ─────────────────────────────────────────────
+system_params:
+  - id: SP-01
+    name: "반복 이상 시 검증 계획 확대"
+    value: {window_days: 30, min_events: 2}
+    effect: "정비 신청 시 해당 설비의 진동 원인 점검을 계획에 추가 (warn)"
+    source: SYS
+  - id: SP-02
+    name: "센서값 유효시간"
+    value: {max_age_minutes: 30}
+    effect: "조회값이 이보다 오래되면 재조회, 실패 시 DP-03"
+    source: SYS

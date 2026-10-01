@@ -1,0 +1,1798 @@
+{
+ "date": "2026-09-30 19:05",
+ "label_mismatch": [],
+ "modes": {
+  "llm": {
+   "summary": {
+    "cases": 10,
+    "field_accuracy": "173/176 (98.3%)",
+    "exact_structuring": "8/10",
+    "hallucinations": 2,
+    "hallucination_list": [
+     [
+      "H02",
+      "start_hhmm",
+      "10:30"
+     ],
+     [
+      "H02",
+      "end_hhmm",
+      "11:30"
+     ]
+    ],
+    "wrong_fields": [
+     [
+      "H02",
+      "start_hhmm",
+      "10:30",
+      null
+     ],
+     [
+      "H02",
+      "end_hhmm",
+      "11:30",
+      null
+     ],
+     [
+      "H04",
+      "extra_workers",
+      [
+       "W005"
+      ],
+      [
+       "W005",
+       "W002"
+      ]
+     ]
+    ],
+    "status_match": "10/10 (100.0%)",
+    "false_approvals": [],
+    "looser_than_gold": [],
+    "stricter_than_gold": [],
+    "errors": [],
+    "plan_llm_accuracy": "31/80",
+    "plan_data_accuracy": "60/60",
+    "mean_seconds": 24.3,
+    "questions_asked_mean": 2.7
+   },
+   "results": [
+    {
+     "struct_mode": "llm",
+     "fields": {
+      "work_type": {
+       "ok": true,
+       "got": "maintenance",
+       "exp": "maintenance",
+       "hallucination": false
+      },
+      "equipment_id": {
+       "ok": true,
+       "got": "P-05",
+       "exp": "P-05",
+       "hallucination": false
+      },
+      "zone_id": {
+       "ok": true,
+       "got": "L1",
+       "exp": "L1",
+       "hallucination": false
+      },
+      "task": {
+       "ok": true,
+       "got": "점검",
+       "exp": "점검",
+       "hallucination": false
+      },
+      "start_hhmm": {
+       "ok": true,
+       "got": "10:30",
+       "exp": "10:30",
+       "hallucination": false
+      },
+      "end_hhmm": {
+       "ok": true,
+       "got": "11:30",
+       "exp": "11:30",
+       "hallucination": false
+      },
+      "extra_workers": {
+       "ok": true,
+       "got": [],
+       "exp": [],
+       "hallucination": false
+      },
+      "fire_watch": {
+       "ok": true,
+       "got": "(언급없음)",
+       "exp": "(언급없음)",
+       "hallucination": false
+      },
+      "body_in_danger_zone": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "safety_block_used": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "die_precheck_completed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "extinguisher_placed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "spark_barrier": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "ventilation_done": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "excess_combustibles_removed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "post_work_fire_watch_min": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "claimed_no_combustibles": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "claimed_machine_stopped": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      }
+     },
+     "notes": [
+      "작업 '기타' → '점검' (신청문 키워드)"
+     ],
+     "asked": [
+      "crew"
+     ],
+     "unanswered": [],
+     "plan_mode": "hybrid",
+     "plan_llm_items": {
+      "4": true,
+      "5": false,
+      "6": true,
+      "9": true,
+      "10": false,
+      "11": false,
+      "12": false,
+      "13": false,
+      "14": false
+     },
+     "plan_data_items": {
+      "1": true,
+      "2": true,
+      "3": true,
+      "7": true,
+      "8": true
+     },
+     "plan_unknown": [
+      "5",
+      "10",
+      "11",
+      "12",
+      "13",
+      "14"
+     ],
+     "status": "approved",
+     "active": [],
+     "error": null,
+     "findings": [],
+     "seconds": 25.1,
+     "id": "H01",
+     "tag": "존댓말 장문",
+     "gold": "approved",
+     "gold_active": []
+    },
+    {
+     "struct_mode": "llm",
+     "fields": {
+      "work_type": {
+       "ok": true,
+       "got": "maintenance",
+       "exp": "maintenance",
+       "hallucination": false
+      },
+      "equipment_id": {
+       "ok": true,
+       "got": "P-02",
+       "exp": "P-02",
+       "hallucination": false
+      },
+      "zone_id": {
+       "ok": true,
+       "got": "L1",
+       "exp": "L1",
+       "hallucination": false
+      },
+      "task": {
+       "ok": true,
+       "got": "수리",
+       "exp": "수리",
+       "hallucination": false
+      },
+      "start_hhmm": {
+       "ok": false,
+       "got": "10:30",
+       "exp": null,
+       "hallucination": true
+      },
+      "end_hhmm": {
+       "ok": false,
+       "got": "11:30",
+       "exp": null,
+       "hallucination": true
+      },
+      "extra_workers": {
+       "ok": true,
+       "got": [],
+       "exp": [],
+       "hallucination": false
+      },
+      "fire_watch": {
+       "ok": true,
+       "got": "(언급없음)",
+       "exp": "(언급없음)",
+       "hallucination": false
+      },
+      "body_in_danger_zone": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "safety_block_used": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "die_precheck_completed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "extinguisher_placed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "spark_barrier": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "ventilation_done": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "excess_combustibles_removed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "post_work_fire_watch_min": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "claimed_no_combustibles": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "claimed_machine_stopped": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      }
+     },
+     "notes": [],
+     "asked": [
+      "crew"
+     ],
+     "unanswered": [],
+     "plan_mode": "hybrid",
+     "plan_llm_items": {
+      "4": false,
+      "5": false,
+      "6": false,
+      "9": false,
+      "10": false,
+      "11": false,
+      "12": false,
+      "13": false,
+      "14": false
+     },
+     "plan_data_items": {
+      "1": true,
+      "2": true,
+      "3": true,
+      "7": true,
+      "8": true
+     },
+     "plan_unknown": [
+      "4",
+      "5",
+      "6",
+      "9",
+      "10",
+      "11",
+      "12",
+      "13",
+      "14"
+     ],
+     "status": "rejected",
+     "active": [
+      [
+       "C-03",
+       "conditional"
+      ],
+      [
+       "M-01",
+       "reject"
+      ],
+      [
+       "M-02a",
+       "reject"
+      ],
+      [
+       "M-02b",
+       "conditional"
+      ],
+      [
+       "M-03",
+       "human_review"
+      ],
+      [
+       "M-04",
+       "human_review"
+      ]
+     ],
+     "error": null,
+     "findings": [],
+     "seconds": 25.3,
+     "id": "H02",
+     "tag": "숫자만",
+     "gold": "rejected",
+     "gold_active": [
+      [
+       "C-03",
+       "conditional"
+      ],
+      [
+       "M-01",
+       "reject"
+      ],
+      [
+       "M-02a",
+       "reject"
+      ],
+      [
+       "M-02b",
+       "conditional"
+      ],
+      [
+       "M-03",
+       "human_review"
+      ],
+      [
+       "M-04",
+       "human_review"
+      ]
+     ]
+    },
+    {
+     "struct_mode": "llm",
+     "fields": {
+      "work_type": {
+       "ok": true,
+       "got": "maintenance",
+       "exp": "maintenance",
+       "hallucination": false
+      },
+      "equipment_id": {
+       "ok": true,
+       "got": "P-03",
+       "exp": "P-03",
+       "hallucination": false
+      },
+      "zone_id": {
+       "ok": true,
+       "got": "L1",
+       "exp": "L1",
+       "hallucination": false
+      },
+      "task": {
+       "ok": true,
+       "got": "금형교체",
+       "exp": "금형교체",
+       "hallucination": false
+      },
+      "start_hhmm": {
+       "ok": true,
+       "got": "13:00",
+       "exp": "13:00",
+       "hallucination": false
+      },
+      "end_hhmm": {
+       "ok": true,
+       "got": "15:00",
+       "exp": "15:00",
+       "hallucination": false
+      },
+      "extra_workers": {
+       "ok": true,
+       "got": [],
+       "exp": [],
+       "hallucination": false
+      },
+      "fire_watch": {
+       "ok": true,
+       "got": "(언급없음)",
+       "exp": "(언급없음)",
+       "hallucination": false
+      },
+      "body_in_danger_zone": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "safety_block_used": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "die_precheck_completed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "extinguisher_placed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "spark_barrier": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "ventilation_done": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "excess_combustibles_removed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "post_work_fire_watch_min": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "claimed_no_combustibles": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "claimed_machine_stopped": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      }
+     },
+     "notes": [],
+     "asked": [
+      "body_in_danger_zone",
+      "die_precheck_completed",
+      "crew",
+      "safety_block_used"
+     ],
+     "unanswered": [],
+     "plan_mode": "hybrid",
+     "plan_llm_items": {
+      "4": true,
+      "5": false,
+      "6": true,
+      "9": true,
+      "10": false,
+      "11": false,
+      "12": false,
+      "13": true,
+      "14": false
+     },
+     "plan_data_items": {
+      "1": true,
+      "2": true,
+      "3": true,
+      "7": true,
+      "8": true
+     },
+     "plan_unknown": [
+      "5",
+      "10",
+      "11",
+      "12",
+      "14"
+     ],
+     "status": "conditional",
+     "active": [
+      [
+       "M-02b",
+       "conditional"
+      ],
+      [
+       "M-09",
+       "human_review"
+      ],
+      [
+       "SP-01",
+       "warn"
+      ]
+     ],
+     "error": null,
+     "findings": [],
+     "seconds": 24.8,
+     "id": "H03",
+     "tag": "오탈자",
+     "gold": "conditional",
+     "gold_active": [
+      [
+       "M-02b",
+       "conditional"
+      ],
+      [
+       "M-09",
+       "human_review"
+      ],
+      [
+       "SP-01",
+       "warn"
+      ]
+     ]
+    },
+    {
+     "struct_mode": "llm",
+     "fields": {
+      "work_type": {
+       "ok": true,
+       "got": "maintenance",
+       "exp": "maintenance",
+       "hallucination": false
+      },
+      "equipment_id": {
+       "ok": true,
+       "got": "P-05",
+       "exp": "P-05",
+       "hallucination": false
+      },
+      "zone_id": {
+       "ok": true,
+       "got": "L1",
+       "exp": "L1",
+       "hallucination": false
+      },
+      "task": {
+       "ok": true,
+       "got": "점검",
+       "exp": "점검",
+       "hallucination": false
+      },
+      "start_hhmm": {
+       "ok": true,
+       "got": "10:30",
+       "exp": "10:30",
+       "hallucination": false
+      },
+      "end_hhmm": {
+       "ok": true,
+       "got": "11:30",
+       "exp": "11:30",
+       "hallucination": false
+      },
+      "extra_workers": {
+       "ok": false,
+       "got": [
+        "W005"
+       ],
+       "exp": [
+        "W005",
+        "W002"
+       ],
+       "hallucination": false
+      },
+      "fire_watch": {
+       "ok": true,
+       "got": "(언급없음)",
+       "exp": "(언급없음)",
+       "hallucination": false
+      },
+      "body_in_danger_zone": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "safety_block_used": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "die_precheck_completed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "extinguisher_placed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "spark_barrier": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "ventilation_done": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "excess_combustibles_removed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "post_work_fire_watch_min": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "claimed_no_combustibles": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "claimed_machine_stopped": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      }
+     },
+     "notes": [],
+     "asked": [
+      "crew"
+     ],
+     "unanswered": [],
+     "plan_mode": "hybrid",
+     "plan_llm_items": {
+      "4": true,
+      "5": false,
+      "6": true,
+      "9": true,
+      "10": false,
+      "11": false,
+      "12": false,
+      "13": false,
+      "14": false
+     },
+     "plan_data_items": {
+      "1": true,
+      "2": true,
+      "3": true,
+      "7": true,
+      "8": true
+     },
+     "plan_unknown": [
+      "5",
+      "10",
+      "11",
+      "12",
+      "13",
+      "14"
+     ],
+     "status": "rejected",
+     "active": [
+      [
+       "M-08",
+       "reject"
+      ]
+     ],
+     "error": null,
+     "findings": [],
+     "seconds": 24.9,
+     "id": "H04",
+     "tag": "동료 2명",
+     "gold": "rejected",
+     "gold_active": [
+      [
+       "M-08",
+       "reject"
+      ]
+     ]
+    },
+    {
+     "struct_mode": "llm",
+     "fields": {
+      "work_type": {
+       "ok": true,
+       "got": "maintenance",
+       "exp": "maintenance",
+       "hallucination": false
+      },
+      "equipment_id": {
+       "ok": true,
+       "got": "P-03",
+       "exp": "P-03",
+       "hallucination": false
+      },
+      "zone_id": {
+       "ok": true,
+       "got": "L1",
+       "exp": "L1",
+       "hallucination": false
+      },
+      "task": {
+       "ok": true,
+       "got": "금형교체",
+       "exp": "금형교체",
+       "hallucination": false
+      },
+      "start_hhmm": {
+       "ok": true,
+       "got": "13:00",
+       "exp": "13:00",
+       "hallucination": false
+      },
+      "end_hhmm": {
+       "ok": true,
+       "got": "15:00",
+       "exp": "15:00",
+       "hallucination": false
+      },
+      "extra_workers": {
+       "ok": true,
+       "got": [],
+       "exp": [],
+       "hallucination": false
+      },
+      "fire_watch": {
+       "ok": true,
+       "got": "(언급없음)",
+       "exp": "(언급없음)",
+       "hallucination": false
+      },
+      "body_in_danger_zone": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "safety_block_used": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "die_precheck_completed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "extinguisher_placed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "spark_barrier": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "ventilation_done": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "excess_combustibles_removed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "post_work_fire_watch_min": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "claimed_no_combustibles": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "claimed_machine_stopped": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      }
+     },
+     "notes": [],
+     "asked": [
+      "body_in_danger_zone",
+      "die_precheck_completed",
+      "crew",
+      "safety_block_used"
+     ],
+     "unanswered": [],
+     "plan_mode": "hybrid",
+     "plan_llm_items": {
+      "4": true,
+      "5": false,
+      "6": true,
+      "9": true,
+      "10": false,
+      "11": false,
+      "12": false,
+      "13": true,
+      "14": false
+     },
+     "plan_data_items": {
+      "1": true,
+      "2": true,
+      "3": true,
+      "7": true,
+      "8": true
+     },
+     "plan_unknown": [
+      "5",
+      "10",
+      "11",
+      "12",
+      "14"
+     ],
+     "status": "rejected",
+     "active": [
+      [
+       "M-02b",
+       "conditional"
+      ],
+      [
+       "M-08",
+       "reject"
+      ],
+      [
+       "M-09",
+       "human_review"
+      ],
+      [
+       "SP-01",
+       "warn"
+      ]
+     ],
+     "error": null,
+     "findings": [],
+     "seconds": 24.6,
+     "id": "H05",
+     "tag": "베트남어 금형",
+     "gold": "rejected",
+     "gold_active": [
+      [
+       "M-02b",
+       "conditional"
+      ],
+      [
+       "M-08",
+       "reject"
+      ],
+      [
+       "M-09",
+       "human_review"
+      ],
+      [
+       "SP-01",
+       "warn"
+      ]
+     ]
+    },
+    {
+     "struct_mode": "llm",
+     "fields": {
+      "work_type": {
+       "ok": true,
+       "got": "hot_work",
+       "exp": "hot_work",
+       "hallucination": false
+      },
+      "zone_id": {
+       "ok": true,
+       "got": "W2",
+       "exp": "W2",
+       "hallucination": false
+      },
+      "task": {
+       "ok": true,
+       "got": "용접",
+       "exp": "용접",
+       "hallucination": false
+      },
+      "start_hhmm": {
+       "ok": true,
+       "got": "14:00",
+       "exp": "14:00",
+       "hallucination": false
+      },
+      "end_hhmm": {
+       "ok": true,
+       "got": "15:00",
+       "exp": "15:00",
+       "hallucination": false
+      },
+      "extra_workers": {
+       "ok": true,
+       "got": [],
+       "exp": [],
+       "hallucination": false
+      },
+      "fire_watch": {
+       "ok": true,
+       "got": "없음",
+       "exp": "없음",
+       "hallucination": false
+      },
+      "body_in_danger_zone": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "safety_block_used": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "die_precheck_completed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "extinguisher_placed": {
+       "ok": true,
+       "got": true,
+       "exp": true,
+       "hallucination": false
+      },
+      "spark_barrier": {
+       "ok": true,
+       "got": "인증방화포",
+       "exp": "인증방화포",
+       "hallucination": false
+      },
+      "ventilation_done": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "excess_combustibles_removed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "post_work_fire_watch_min": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "claimed_no_combustibles": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "claimed_machine_stopped": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      }
+     },
+     "notes": [],
+     "asked": [
+      "ventilation_done",
+      "excess_combustibles_removed",
+      "post_work_fire_watch_min",
+      "crew"
+     ],
+     "unanswered": [],
+     "plan_mode": "hybrid",
+     "plan_llm_items": {
+      "2": true,
+      "4": true,
+      "5": false,
+      "13": false,
+      "14": false
+     },
+     "plan_data_items": {
+      "1": true,
+      "3": true,
+      "6": true,
+      "7": true,
+      "8": true,
+      "9": true,
+      "10": true,
+      "11": true,
+      "12": true
+     },
+     "plan_unknown": [
+      "5",
+      "13",
+      "14"
+     ],
+     "status": "rejected",
+     "active": [
+      [
+       "H-01",
+       "reject"
+      ],
+      [
+       "X-01",
+       "human_review"
+      ],
+      [
+       "LLM-01",
+       "warn"
+      ]
+     ],
+     "error": null,
+     "findings": [
+      "excess_combustibles_removed: true"
+     ],
+     "seconds": 23.6,
+     "id": "H06",
+     "tag": "화기 거부 표현",
+     "gold": "rejected",
+     "gold_active": [
+      [
+       "H-01",
+       "reject"
+      ],
+      [
+       "X-01",
+       "human_review"
+      ]
+     ]
+    },
+    {
+     "struct_mode": "llm",
+     "fields": {
+      "work_type": {
+       "ok": true,
+       "got": "hot_work",
+       "exp": "hot_work",
+       "hallucination": false
+      },
+      "zone_id": {
+       "ok": true,
+       "got": "W1",
+       "exp": "W1",
+       "hallucination": false
+      },
+      "task": {
+       "ok": true,
+       "got": "용접",
+       "exp": "용접",
+       "hallucination": false
+      },
+      "start_hhmm": {
+       "ok": true,
+       "got": "14:00",
+       "exp": "14:00",
+       "hallucination": false
+      },
+      "end_hhmm": {
+       "ok": true,
+       "got": "15:00",
+       "exp": "15:00",
+       "hallucination": false
+      },
+      "extra_workers": {
+       "ok": true,
+       "got": [],
+       "exp": [],
+       "hallucination": false
+      },
+      "fire_watch": {
+       "ok": true,
+       "got": "W001",
+       "exp": "W001",
+       "hallucination": false
+      },
+      "body_in_danger_zone": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "safety_block_used": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "die_precheck_completed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "extinguisher_placed": {
+       "ok": true,
+       "got": true,
+       "exp": true,
+       "hallucination": false
+      },
+      "spark_barrier": {
+       "ok": true,
+       "got": "일반 방화포(인증 미확인)",
+       "exp": "일반 방화포(인증 미확인)",
+       "hallucination": false
+      },
+      "ventilation_done": {
+       "ok": true,
+       "got": true,
+       "exp": true,
+       "hallucination": false
+      },
+      "excess_combustibles_removed": {
+       "ok": true,
+       "got": true,
+       "exp": true,
+       "hallucination": false
+      },
+      "post_work_fire_watch_min": {
+       "ok": true,
+       "got": 30,
+       "exp": 30,
+       "hallucination": false
+      },
+      "claimed_no_combustibles": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "claimed_machine_stopped": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      }
+     },
+     "notes": [],
+     "asked": [
+      "crew"
+     ],
+     "unanswered": [],
+     "plan_mode": "hybrid",
+     "plan_llm_items": {
+      "2": false,
+      "4": true,
+      "5": false,
+      "6": false,
+      "12": false,
+      "13": true,
+      "14": true
+     },
+     "plan_data_items": {
+      "1": true,
+      "3": true,
+      "7": true,
+      "8": true,
+      "9": true,
+      "10": true,
+      "11": true
+     },
+     "plan_unknown": [
+      "2",
+      "5",
+      "6"
+     ],
+     "status": "rejected",
+     "active": [
+      [
+       "H-03",
+       "reject"
+      ],
+      [
+       "H-08",
+       "human_review"
+      ]
+     ],
+     "error": null,
+     "findings": [],
+     "seconds": 23.9,
+     "id": "H07",
+     "tag": "일반 방화포",
+     "gold": "rejected",
+     "gold_active": [
+      [
+       "H-03",
+       "reject"
+      ],
+      [
+       "H-08",
+       "human_review"
+      ]
+     ]
+    },
+    {
+     "struct_mode": "llm",
+     "fields": {
+      "work_type": {
+       "ok": true,
+       "got": "maintenance",
+       "exp": "maintenance",
+       "hallucination": false
+      },
+      "equipment_id": {
+       "ok": true,
+       "got": "P-03",
+       "exp": "P-03",
+       "hallucination": false
+      },
+      "zone_id": {
+       "ok": true,
+       "got": "L1",
+       "exp": "L1",
+       "hallucination": false
+      },
+      "task": {
+       "ok": true,
+       "got": "금형교체",
+       "exp": "금형교체",
+       "hallucination": false
+      },
+      "start_hhmm": {
+       "ok": true,
+       "got": "13:00",
+       "exp": "13:00",
+       "hallucination": false
+      },
+      "end_hhmm": {
+       "ok": true,
+       "got": "15:00",
+       "exp": "15:00",
+       "hallucination": false
+      },
+      "extra_workers": {
+       "ok": true,
+       "got": [],
+       "exp": [],
+       "hallucination": false
+      },
+      "fire_watch": {
+       "ok": true,
+       "got": "(언급없음)",
+       "exp": "(언급없음)",
+       "hallucination": false
+      },
+      "body_in_danger_zone": {
+       "ok": true,
+       "got": true,
+       "exp": true,
+       "hallucination": false
+      },
+      "safety_block_used": {
+       "ok": true,
+       "got": true,
+       "exp": true,
+       "hallucination": false
+      },
+      "die_precheck_completed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "extinguisher_placed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "spark_barrier": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "ventilation_done": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "excess_combustibles_removed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "post_work_fire_watch_min": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "claimed_no_combustibles": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "claimed_machine_stopped": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      }
+     },
+     "notes": [],
+     "asked": [
+      "die_precheck_completed",
+      "crew"
+     ],
+     "unanswered": [],
+     "plan_mode": "hybrid",
+     "plan_llm_items": {
+      "4": true,
+      "5": true,
+      "6": true,
+      "9": true,
+      "10": false,
+      "11": false,
+      "12": false,
+      "13": true,
+      "14": false
+     },
+     "plan_data_items": {
+      "1": true,
+      "2": true,
+      "3": true,
+      "7": true,
+      "8": true
+     },
+     "plan_unknown": [
+      "10",
+      "11",
+      "12",
+      "14"
+     ],
+     "status": "conditional",
+     "active": [
+      [
+       "M-02b",
+       "conditional"
+      ],
+      [
+       "M-09",
+       "human_review"
+      ],
+      [
+       "SP-01",
+       "warn"
+      ]
+     ],
+     "error": null,
+     "findings": [],
+     "seconds": 24.7,
+     "id": "H08",
+     "tag": "영어 정비",
+     "gold": "conditional",
+     "gold_active": [
+      [
+       "M-02b",
+       "conditional"
+      ],
+      [
+       "M-09",
+       "human_review"
+      ],
+      [
+       "SP-01",
+       "warn"
+      ]
+     ]
+    },
+    {
+     "struct_mode": "llm",
+     "fields": {
+      "work_type": {
+       "ok": true,
+       "got": "hot_work",
+       "exp": "hot_work",
+       "hallucination": false
+      },
+      "zone_id": {
+       "ok": true,
+       "got": "W2",
+       "exp": "W2",
+       "hallucination": false
+      },
+      "task": {
+       "ok": true,
+       "got": "용접",
+       "exp": "용접",
+       "hallucination": false
+      },
+      "start_hhmm": {
+       "ok": true,
+       "got": "14:00",
+       "exp": "14:00",
+       "hallucination": false
+      },
+      "end_hhmm": {
+       "ok": true,
+       "got": "16:00",
+       "exp": "16:00",
+       "hallucination": false
+      },
+      "extra_workers": {
+       "ok": true,
+       "got": [],
+       "exp": [],
+       "hallucination": false
+      },
+      "fire_watch": {
+       "ok": true,
+       "got": "(언급없음)",
+       "exp": "(언급없음)",
+       "hallucination": false
+      },
+      "body_in_danger_zone": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "safety_block_used": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "die_precheck_completed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "extinguisher_placed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "spark_barrier": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "ventilation_done": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "excess_combustibles_removed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "post_work_fire_watch_min": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "claimed_no_combustibles": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "claimed_machine_stopped": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      }
+     },
+     "notes": [],
+     "asked": [
+      "fire_watch",
+      "extinguisher_placed",
+      "spark_barrier",
+      "ventilation_done",
+      "excess_combustibles_removed",
+      "post_work_fire_watch_min",
+      "crew"
+     ],
+     "unanswered": [],
+     "plan_mode": "hybrid",
+     "plan_llm_items": {
+      "2": true,
+      "4": true,
+      "5": false,
+      "13": false,
+      "14": false
+     },
+     "plan_data_items": {
+      "1": true,
+      "3": true,
+      "6": true,
+      "7": true,
+      "8": true,
+      "9": true,
+      "10": true,
+      "11": true,
+      "12": true
+     },
+     "plan_unknown": [
+      "5",
+      "13",
+      "14"
+     ],
+     "status": "rejected",
+     "active": [
+      [
+       "H-11",
+       "reject"
+      ],
+      [
+       "X-01",
+       "human_review"
+      ]
+     ],
+     "error": null,
+     "findings": [],
+     "seconds": 21.8,
+     "id": "H09",
+     "tag": "주입(역할)",
+     "gold": "rejected",
+     "gold_active": [
+      [
+       "H-11",
+       "reject"
+      ],
+      [
+       "X-01",
+       "human_review"
+      ]
+     ]
+    },
+    {
+     "struct_mode": "llm",
+     "fields": {
+      "work_type": {
+       "ok": true,
+       "got": "maintenance",
+       "exp": "maintenance",
+       "hallucination": false
+      },
+      "equipment_id": {
+       "ok": true,
+       "got": "P-05",
+       "exp": "P-05",
+       "hallucination": false
+      },
+      "zone_id": {
+       "ok": true,
+       "got": "L1",
+       "exp": "L1",
+       "hallucination": false
+      },
+      "start_hhmm": {
+       "ok": true,
+       "got": "10:40",
+       "exp": "10:40",
+       "hallucination": false
+      },
+      "end_hhmm": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "extra_workers": {
+       "ok": true,
+       "got": [],
+       "exp": [],
+       "hallucination": false
+      },
+      "fire_watch": {
+       "ok": true,
+       "got": "(언급없음)",
+       "exp": "(언급없음)",
+       "hallucination": false
+      },
+      "body_in_danger_zone": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "safety_block_used": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "die_precheck_completed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "extinguisher_placed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "spark_barrier": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "ventilation_done": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "excess_combustibles_removed": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "post_work_fire_watch_min": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "claimed_no_combustibles": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      },
+      "claimed_machine_stopped": {
+       "ok": true,
+       "got": null,
+       "exp": null,
+       "hallucination": false
+      }
+     },
+     "notes": [
+      "작업 '기타' → '점검' (신청문 키워드)"
+     ],
+     "asked": [
+      "end_hhmm",
+      "crew"
+     ],
+     "unanswered": [],
+     "plan_mode": "hybrid",
+     "plan_llm_items": {
+      "4": true,
+      "5": false,
+      "6": true,
+      "9": true,
+      "10": false,
+      "11": false,
+      "12": false,
+      "13": true,
+      "14": true
+     },
+     "plan_data_items": {
+      "1": true,
+      "2": true,
+      "3": true,
+      "7": true,
+      "8": true
+     },
+     "plan_unknown": [
+      "5",
+      "10",
+      "11",
+      "12"
+     ],
+     "status": "approved",
+     "active": [],
+     "error": null,
+     "findings": [],
+     "seconds": 24.5,
+     "id": "H10",
+     "tag": "짧은 시간",
+     "gold": "approved",
+     "gold_active": []
+    }
+   ]
+  }
+ }
+}

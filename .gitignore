@@ -1,0 +1,7 @@
+*.db
+__pycache__/
+.venv/
+data/evidence/
+tests/eval_out/_old/
+*.pyc
+.streamlit/secrets.toml

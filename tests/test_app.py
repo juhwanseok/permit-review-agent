@@ -90,6 +90,16 @@ def test_s2_evidence_signature_and_monitor_through_gui():
     assert at.session_state["con"].execute("SELECT 1 FROM permits WHERE id=?", (pid,)).fetchone() is None
 
 
+def test_no_streamlit_magic_expression_statements():
+    """호출이 아닌 표현식 문(예: `st.text(x) if x else st.caption(y)`)은 Streamlit 매직이 반환값을 화면에 그린다.
+    번역 결과 아래에 DeltaGenerator 도움말이 출력되던 버그(2026-10-04) 재발 방지."""
+    import ast
+    tree = ast.parse((ROOT / "app.py").read_text(encoding="utf-8"))
+    bad = [n.lineno for n in ast.walk(tree)
+           if isinstance(n, ast.Expr) and not isinstance(n.value, (ast.Call, ast.Constant, ast.Await))]
+    assert not bad, f"매직으로 그려질 표현식 문: {bad}"
+
+
 if __name__ == "__main__":
     db = ROOT / "data" / "permit_demo.db"
     backup = Path(tempfile.mkdtemp()) / "b.db"
@@ -99,7 +109,9 @@ if __name__ == "__main__":
         test_s2_flow_through_gui()
         print("ok test_s2_flow_through_gui")
         test_s2_evidence_signature_and_monitor_through_gui()
-        print("ok test_s2_evidence_signature_and_monitor_through_gui\n2개 통과")
+        print("ok test_s2_evidence_signature_and_monitor_through_gui")
+        test_no_streamlit_magic_expression_statements()
+        print("ok test_no_streamlit_magic_expression_statements\n3개 통과")
     finally:
         if backup.exists():
             shutil.copy(backup, db)

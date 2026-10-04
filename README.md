@@ -33,7 +33,7 @@ ollama pull gemma4:31b               # Ollama가 실행 중이면 앱 사이드�
 ## 테스트와 평가
 
 ```bash
-python tests/run_checks.py           # 임시 복사본에서 103개 테스트 + 규칙 검사 + S1~S3 실행
+python tests/run_checks.py           # 임시 복사본에서 104개 테스트 + 규칙 검사 + S1~S3 실행
 python -m engine.demo all            # S1·S2·S3 실행 로그 (LLM 없이)
 python rules/validate_rules.py       # 규칙 파일 무결성 검사
 python tests/test_validate_rules.py
@@ -59,7 +59,7 @@ python tests/run_eval.py llm tests/eval_out/gemma_holdout_rerun holdout
 - 보류셋 첫 실행의 불일치 3건 중 2건은 정답보다 엄격했고, 1건(H04)은 반려를 조건부로 냈습니다. 조건부는 서명이 막히므로 허가가 나가지는 않습니다.
 - 정답 판정은 사람이 확정한 입력으로 규칙 엔진을 돌린 결과입니다. 즉 **규칙 엔진이 옳다는 전제의 일치율**입니다.
 - 수정 후 수치는 평가셋을 보고 고친 결과이므로 일반화 성능으로 보지 않습니다(L-C12).
-- 이 표는 기존 평가 기록입니다. 2026-10-04 패키지 수정 후에는 결정적 테스트 101개(현재 103개)와 실모델 S1~S3·합성 사진 2종을 다시 확인했습니다. 34건 전체의 실모델 평가를 다시 수행하지는 않았습니다.
+- 이 표는 기존 평가 기록입니다. 2026-10-04 패키지 수정 후에는 결정적 테스트 101개(현재 104개)와 실모델 S1~S3·합성 사진 2종을 다시 확인했습니다. 34건 전체의 실모델 평가를 다시 수행하지는 않았습니다.
 - 판정 평가에서는 누락 입력과 미확정 계획을 사람이 정답으로 보완합니다. `오승인 0`은 이 평가 절차의 발행 가능 여부에 관한 수치이며, 위험요인 누락·오판 전체가 0이라는 뜻이 아닙니다.
 - 결과 파일: `tests/eval_out/` — `gemma_holdout_first`(보류셋 첫 실행), `gemma_holdout_fixed`, `gemma_dev`, `fallback_dev`, `fallback_holdout`
 
@@ -79,7 +79,7 @@ python tests/run_eval.py llm tests/eval_out/gemma_holdout_rerun holdout
 | `engine/scenarios.py`, `engine/demo.py` | 시연 시나리오 S1~S3 입력과 실행 로그 출력 |
 | `app.py` | Streamlit GUI (6단계) |
 | `assets/make_samples.py` | 합성 증빙 사진 생성 (L-D05) |
-| `tests/test_*.py` | 결정적 테스트 103개: 규칙 검사 8, 시드 14, 엔진 23, 파이프라인 10, 견고성 20, GUI 2, 제출 회귀 26 |
+| `tests/test_*.py` | 결정적 테스트 104개: 규칙 검사 8, 시드 14, 엔진 23, 파이프라인 10, 견고성 20, GUI 3, 제출 회귀 26 |
 | `tests/run_checks.py` | 임시 복사본에서 전체 검증. 사용 중인 데모 DB를 덮어쓰지 않음 |
 | `tests/verification_20261004/` | 수정 후 테스트 결과와 실모델 시연 점검 기록 |
 | `tests/eval_cases.py`, `tests/run_eval.py` | 정확도 평가셋(개발 24건 + 보류 10건)과 실행기 |

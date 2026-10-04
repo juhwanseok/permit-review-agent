@@ -424,7 +424,10 @@ def page_review():
                 ss.notice_tr = p.translate(docs["notice_ko"], lang)
         if ss.get("notice_tr"):
             text, mode = ss.notice_tr
-            st.text(text) if text else st.caption("LLM 미연결: 번역 불가 (L-C04)")
+            if text:      # 한 줄 조건식은 Streamlit 매직이 반환값(DeltaGenerator 도움말)까지 그린다
+                st.text(text)
+            else:
+                st.caption("LLM 미연결: 번역 불가 (L-C04)")
 
 
 def evidence_ui(p, r, req):
@@ -588,7 +591,10 @@ def page_sign():
     if lang != "ko" and st.button(f"번역: {LANGS[lang]}", key="tr_final"):
         with st.spinner("번역 중…"):
             text, _ = p.translate(docs["notice_ko"], lang)
-        st.text(text) if text else st.caption("LLM 미연결: 번역 불가 (L-C04)")
+        if text:      # 한 줄 조건식은 Streamlit 매직이 반환값(DeltaGenerator 도움말)까지 그린다
+            st.text(text)
+        else:
+            st.caption("LLM 미연결: 번역 불가 (L-C04)")
     if stored["status"] == "issued":
         st.button("④ 작업 감시로", on_click=go, args=(PAGES[3],))
 

@@ -624,12 +624,19 @@ def page_monitor():
         p.con.commit()
     if st.button("감시 실행", type="primary"):
         alerts, trace = p.monitor(pid, now())
-        if not alerts:
+        # 중지되면 상태 표시를 갱신하려고 다시 그리므로, 결과를 저장해 두고 아래에서 보여 준다
+        ss.monitor_result = {"pid": pid, "at": now(), "alerts": alerts, "tools": [t["tool"] for t in trace]}
+        if any(a["level"] == "stop" for a in alerts) and r["status"] == "issued":
+            st.rerun()
+    res = ss.get("monitor_result")
+    if res and res["pid"] == pid:
+        if r["status"] == "suspended":
+            st.error(f"**허가 중지됨** ({res['at'][11:]} 감시) — 새 허가번호로 재신청·재검토 필요")
+        if not res["alerts"]:
             st.success("이상 없음")
-        for a in alerts:
+        for a in res["alerts"]:
             {"stop": st.error, "warn": st.warning, "info": st.info}[a["level"]](f"{a['text']}  〔{a['source']}〕")
-        st.caption("조회: " + ", ".join(t["tool"] for t in trace))
-        st.rerun() if any(a["level"] == "stop" for a in alerts) and r["status"] == "issued" else None
+        st.caption("조회: " + ", ".join(res["tools"]))
 
 
 # ─────────────────────────────────────────────

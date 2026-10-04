@@ -77,6 +77,8 @@ def test_s2_evidence_signature_and_monitor_through_gui():
     click(at, "설비 가동 감지 (전류 18A)")
     click(at, "감시 실행")
     assert not at.exception, at.exception
+    assert any("허가 중지됨" in e.value for e in at.error)          # 중지 이유가 다시 그린 뒤에도 남아 있어야 한다
+    assert any("설비 가동 감지" in e.value for e in at.error)
     con = at.session_state["con"]
     assert con.execute("SELECT status FROM permits WHERE id=?", (at.session_state["j"].permit_id,)).fetchone()[0] == "suspended"
     # 같은 시나리오를 다시 불러오면 데모 DB를 새로 만든다 (서명된 허가번호 재사용 오류 방지, 2026-10-04)

@@ -257,7 +257,10 @@ def page_request():
     if req.get("_notes"):
         st.warning("LLM 출력 정정 (등록 데이터와 대조): " + " / ".join(req["_notes"]))
     if ss.raw.get("summary_ko"):
-        st.info(ss.raw["summary_ko"])
+        summary = ss.raw["summary_ko"]
+        for w in ctx["workers"]:                    # LLM 요약의 작업자 ID(W001)를 이름으로 보여 준다
+            summary = re.sub(rf"\b{w['id']}\b", w["name"], summary)
+        st.info(summary)
     show = {k: v for k, v in req.items() if not k.startswith("_") and k not in ("request_text",)}
     with st.expander("구조화 필드 (엔진 입력)", expanded=False):
         st.json(show)

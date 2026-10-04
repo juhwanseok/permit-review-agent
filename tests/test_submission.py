@@ -252,6 +252,36 @@ def test_unsigned_document_cannot_claim_issued():
     blocked(lambda: p.documents(j, r, "issued"))
 
 
+def test_plan_confirmed_only_by_supervisor_not_requester():
+    """14항목은 허가서 발급자·현장감독자가 확인한다 (KOSHA C-C-49 6.1). 신청자·일반 작업자는 불가."""
+    p = fresh()
+    r = copy.deepcopy(sc.S3["request"])                      # 신청자 W003(응우옌 반 탄)
+    ids = [w["id"] for w in p.plan_confirmers(r)]
+    assert ids[0] == "W002" and "W001" in ids and "W003" not in ids and "W004" not in ids
+    plan = {k: {"answer": "모름", "reason": "[LLM] 정보 없음"} for k in map(str, range(1, 15))}
+    answers = {k: "비해당" for k in plan}
+    blocked(lambda: p.confirm_plan(r, plan, answers, "W003"), PermissionError)   # 신청자 본인
+    blocked(lambda: p.confirm_plan(r, plan, answers, "W004"), PermissionError)   # 일반 작업자
+    blocked(lambda: p.confirm_plan(r, plan, {"1": "몰라요"}, "W002"))
+    out = p.confirm_plan(r, plan, answers, "W002")
+    assert r["plan_confirmed_by"] == "W002" and out["5"]["reason"].startswith("[감독자 확인] 박안전")
+    s2 = copy.deepcopy(sc.S2["request"])                     # 신청자 김정비(정비반장)는 자기 신청을 확인할 수 없다
+    assert "W001" not in [w["id"] for w in p.plan_confirmers(s2)]
+
+
+def test_worker_notice_has_reasons_alternatives_and_safety_rules():
+    """작업자 안내: 반려 이유·보완 방법, 발행 시 안전수칙, 중지 시 이유 (신청자 언어로 번역해 보여 줄 원문)."""
+    p = fresh()
+    r, j = s1(p)
+    issued = p.worker_notice_ko(j, r, "issued")
+    assert "허가 시간: 10:30~11:30" in issued and "제92조" in issued
+    alts = [{"rule": "H-11", "text": "38호 이수자로 교체"}]
+    rej = p.worker_notice_ko(j, r, "rejected", alternatives=alts)
+    assert "보완 방법: 38호 이수자로 교체" in rej
+    stop = p.worker_notice_ko(None, r, "suspended", stop_reasons=["설비 가동 감지"])
+    assert "중지 이유: 설비 가동 감지" in stop and "새로 허가" in stop
+
+
 def test_signature_ignores_harmless_na_to_pass_change():
     """서명 시 재판정에서 비적용→통과 변화는 '강화'가 아니므로 서명을 막지 않는다 (2026-10-04)."""
     p = fresh(); r, j = s1(p)

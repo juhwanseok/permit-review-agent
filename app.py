@@ -34,6 +34,36 @@ STATUS_UI = {"approved": ("success", "승인: 허가권자 서명 대기"), "con
              "human_review": ("info", "사람 판단 필요: 허가권자가 결정"), "rejected": ("error", "반려"),
              "issued": ("success", "허가서 발행"), "suspended": ("error", "작업 정지")}
 LANGS = {"ko": "한국어", "vi": "Tiếng Việt", "en": "English", "ne": "नेपाली", "km": "ខ្មែរ", "id": "Bahasa Indonesia"}
+# 작업자(신청자)가 보는 화면 문구. 신청 언어 + 한국어를 함께 보여 준다(감독자는 한국어 사용자로 가정).
+# 한·베·영만 준비했다. 그 외 언어는 한국어로 표시하고 결과 안내만 LLM으로 번역한다 (L-S15).
+UI = {
+    "requester": {"ko": "신청자", "vi": "Người yêu cầu", "en": "Requester"},
+    "lang": {"ko": "신청 언어", "vi": "Ngôn ngữ", "en": "Language"},
+    "text": {"ko": "신청 내용 (자유 형식)", "vi": "Nội dung yêu cầu (viết tự do)", "en": "Request (free text)"},
+    "submit": {"ko": "1) 신청 구조화", "vi": "Gửi yêu cầu", "en": "Submit request"},
+    "result": {"ko": "신청 내용 확인", "vi": "Kiểm tra nội dung yêu cầu", "en": "Check your request"},
+    "q_head": {"ko": "2) 되묻기: 확인이 필요한 항목 {n}개", "vi": "Cần xác nhận thêm {n} mục", "en": "{n} item(s) to confirm"},
+    "q_cap": {"ko": "신청문에 없는 정보는 추측하지 않고 신청자에게 묻습니다 (DP-03).",
+              "vi": "Thông tin không có trong yêu cầu sẽ được hỏi lại, không đoán.",
+              "en": "Missing information is asked, never guessed."},
+    "answer": {"ko": "답변 반영", "vi": "Gửi câu trả lời", "en": "Submit answers"},
+    "yes": {"ko": "예", "vi": "Có", "en": "Yes"},
+    "no": {"ko": "아니오", "vi": "Không", "en": "No"},
+    "done": {"ko": "필수 정보가 모두 확인되었습니다.", "vi": "Đã đủ thông tin cần thiết.", "en": "All required information is confirmed."},
+    "notice": {"ko": "작업자 안내", "vi": "Thông báo cho người lao động", "en": "Notice to worker"},
+}
+SPARK_TR = {   # 불티 비산방지 선택지 (L.SPARK_BARRIER_CHOICES)
+    "vi": {"인증방화포": "Vải chống cháy có chứng nhận", "비산방지덮개": "Tấm che chống tia lửa bắn",
+           "일반 방화포(인증 미확인)": "Vải chống cháy thường (chưa xác nhận chứng nhận)", "없음": "Không có"},
+    "en": {"인증방화포": "Certified fire blanket", "비산방지덮개": "Spark containment cover",
+           "일반 방화포(인증 미확인)": "Ordinary fire blanket (certification unverified)", "없음": "None"},
+}
+
+
+def ui(key, lang, **kw):
+    ko = UI[key]["ko"].format(**kw)
+    t = UI[key].get(lang)
+    return ko if lang == "ko" or not t else f"{t.format(**kw)} / {ko}"
 
 st.set_page_config(page_title="AI 안전작업허가 검토관", page_icon="🦺", layout="wide")
 
@@ -187,6 +217,39 @@ with st.sidebar:
 # ─────────────────────────────────────────────
 # 공통 표시
 # ─────────────────────────────────────────────
+def worker_tr(p, text_ko, lang):
+    """작업자에게 보여 줄 문장을 신청자 언어로 번역(세션 캐시). LLM이 없으면 None."""
+    if lang == "ko" or not text_ko:
+        return text_ko
+    cache = ss.setdefault("tr_cache", {})
+    if (lang, text_ko) not in cache:
+        with st.spinner(f"작업자 언어({LANGS.get(lang, lang)})로 번역 중…"):
+            cache[(lang, text_ko)] = p.translate(text_ko, lang)[0]
+    return cache[(lang, text_ko)]
+
+
+def worker_notice(p, text_ko, lang):
+    """작업자 안내: 신청자 언어를 먼저, 한국어 원문(감독자 확인용)을 아래에 보여 준다."""
+    st.subheader(ui("notice", lang))
+    if lang == "ko":
+        st.text(text_ko)
+        return
+    tr = worker_tr(p, text_ko, lang)
+    if tr:
+        st.text(tr)
+    else:
+        st.caption("LLM 미연결: 번역 불가 — 한국어 원문만 표시 (L-C04)")
+    st.caption("한국어 원문 (감독자 확인용)")
+    st.text(text_ko)
+
+
+def requester_changed():
+    """신청자를 바꾸면 그 작업자의 등록 언어로 화면 언어를 맞춘다."""
+    row = pl().con.execute("SELECT language FROM workers WHERE id=?", (ss.requester,)).fetchone()
+    if row and row[0] in LANGS:
+        ss.lang = row[0]
+
+
 def status_banner(status):
     kind, text = STATUS_UI.get(status, ("info", status))
     getattr(st, kind)(f"**{text}**")
@@ -230,13 +293,16 @@ def page_request():
     ctx = p.context()
     st.title("① 작업허가 신청")
     workers = {w["id"]: f"{w['name']} ({w['role']})" for w in ctx["workers"]}
+    lang = ss.lang
+    st.caption("작업자 화면: 신청·되묻기·결과 안내는 신청자 언어로 표시합니다. 14항목 점검·판정·서명은 감독자(한국어) 단계입니다.")
     c1, c2 = st.columns([2, 1])
-    c1.selectbox("신청자", list(workers), key="requester", format_func=workers.get)
-    c2.selectbox("신청 언어", list(LANGS), key="lang", format_func=LANGS.get)
-    st.text_area("신청 내용 (자유 형식)", key="text", height=90,
+    c1.selectbox(ui("requester", lang), list(workers), key="requester", format_func=workers.get,
+                 on_change=requester_changed)
+    c2.selectbox(ui("lang", lang), list(LANGS), key="lang", format_func=LANGS.get)
+    st.text_area(ui("text", lang), key="text", height=90,
                  placeholder="예: 3호기 금형 교체합니다. 13시부터 15시까지.")
 
-    if st.button("1) 신청 구조화", type="primary", disabled=not ss.text.strip()):
+    if st.button(ui("submit", lang), type="primary", disabled=not ss.text.strip()):
         with st.spinner("신청 내용을 구조화하는 중…"):
             raw, mode = p.structure(ss.text, ss.requester)
         n = p.con.execute("SELECT COUNT(*) FROM permits").fetchone()[0] + 1
@@ -249,8 +315,9 @@ def page_request():
     if "req" not in ss:
         return
     req = ss.req
+    lang = req.get("request_lang", "ko")
     st.divider()
-    st.subheader("구조화 결과")
+    st.subheader(ui("result", lang))
     mode_name = {"llm": f"LLM ({ss.model})", "fallback": "폴백(키워드)",
                  "fallback:error": "LLM 오류 → 폴백(키워드)"}.get(ss.struct_mode, ss.struct_mode)
     st.caption(f"방식: {mode_name} · 허가번호 {req['permit_id']}")
@@ -260,7 +327,8 @@ def page_request():
         summary = ss.raw["summary_ko"]
         for w in ctx["workers"]:                    # LLM 요약의 작업자 ID(W001)를 이름으로 보여 준다
             summary = re.sub(rf"\b{w['id']}\b", w["name"], summary)
-        st.info(summary)
+        tr = worker_tr(p, summary, lang)
+        st.info(summary if lang == "ko" or not tr else f"{tr}  \n({summary})")
     show = {k: v for k, v in req.items() if not k.startswith("_") and k not in ("request_text",)}
     with st.expander("구조화 필드 (엔진 입력)", expanded=False):
         st.json(show)
@@ -273,21 +341,22 @@ def page_request():
 
     qs = p.pending_questions(req)
     if qs:
-        st.subheader(f"2) 되묻기: 확인이 필요한 항목 {len(qs)}개")
-        st.caption("신청문에 없는 정보는 추측하지 않고 신청자에게 묻습니다 (DP-03).")
+        st.subheader(ui("q_head", lang, n=len(qs)))
+        st.caption(ui("q_cap", lang))
         with st.form("questions"):
             answers = {}
             for q in qs:
                 label = q["question"] if q["question"] == q["question_ko"] else f"{q['question']}  \n({q['question_ko']})"
-                answers[q["field"]] = question_widget(q, label, ctx)
-            if st.form_submit_button("답변 반영", type="primary"):
+                answers[q["field"]] = question_widget(q, label, ctx, lang)
+            if st.form_submit_button(ui("answer", lang), type="primary"):
                 for f, v in answers.items():
                     p.answer(req, f, v)
                 st.rerun()
         return
 
-    st.success("필수 정보가 모두 확인되었습니다.")
-    st.subheader("3) 허가 전 점검 14항목 (KOSHA C-C-49-2026 6.1)")
+    st.success(ui("done", lang))
+    st.subheader("3) 감독자 확인: 허가 전 점검 14항목 (KOSHA C-C-49-2026 6.1)")
+    st.caption("이 단계는 허가서 발급자·현장감독자가 확인합니다 (C-C-49 6.1). 신청자 본인은 확인할 수 없습니다.")
     if st.button("14항목 계획 수립", type="primary" if "planning" not in ss else "secondary"):
         with st.spinner("점검 계획을 세우는 중…"):
             ss.planning, ss.plan_mode = p.plan(req, now())
@@ -301,7 +370,10 @@ def page_request():
     n_unknown = sum(1 for v in ss.planning.values() if v["answer"] == "모름")
     if n_unknown:
         st.warning(f"'모름' {n_unknown}개: 현장 확인 후 해당/비해당으로 확정하세요. 남아 있으면 서명할 수 없습니다 (L-S10).")
+    sup = {w["id"]: f"{w['name']} ({w['role']}{' · 허가서 발급자' if w['can_sign_permit'] else ' · 현장감독자'})"
+           for w in p.plan_confirmers(req)}
     with st.form("plan_form"):
+        confirmer = st.selectbox("확인자 (허가서 발급자·현장감독자)", list(sup), format_func=sup.get, key=f"plan_by_{ss.round}")
         chosen = {}
         for k, v in sorted(ss.planning.items(), key=lambda x: int(x[0])):
             c1, c2, c3 = st.columns([3, 1.2, 4])
@@ -312,19 +384,22 @@ def page_request():
             c3.caption(v["reason"])
         submitted = st.form_submit_button("4) 검토 실행", type="primary")
     if submitted:
-        for k, a in chosen.items():
-            if a != ss.planning[k]["answer"]:
-                ss.planning[k] = {"answer": a, "reason": f"[사람 확정] {ss.requester}"}
+        try:
+            ss.planning = p.confirm_plan(req, ss.planning, chosen, confirmer)
+        except (PermissionError, ValueError) as e:
+            st.error(str(e))
+            return
         if run_review(p):
             go(PAGES[1])
             st.rerun()
 
 
-def question_widget(q, label, ctx):
+def question_widget(q, label, ctx, lang="ko"):
     t, f = q["type"], q["field"]
     if t == "bool":
-        v = st.radio(label, ["예", "아니오"], horizontal=True, index=None, key=f"q_{f}")
-        return None if v is None else v == "예"
+        yes = ui("yes", lang)
+        v = st.radio(label, [yes, ui("no", lang)], horizontal=True, index=None, key=f"q_{f}")
+        return None if v is None else v == yes
     if t == "int06":
         return st.number_input(label, 0, 6, 0, key=f"q_{f}")
     if t == "minutes":
@@ -332,7 +407,9 @@ def question_widget(q, label, ctx):
     if t == "time":
         return st.time_input(label, time(13, 0), key=f"q_{f}").strftime("%H:%M")
     if t == "choice":
-        return st.selectbox(label, q["choices"], key=f"q_{f}")
+        trs = SPARK_TR.get(lang, {})
+        return st.selectbox(label, q["choices"], key=f"q_{f}",
+                            format_func=lambda c: f"{trs[c]} / {c}" if c in trs else c)
     if t == "equipment":
         names = {e["id"]: f"{e['id']} {e['name']}" for e in ctx["equipment"]} | {
             P.NO_EQUIPMENT: "대상 설비 없음 (설비 정비가 아님)"}
@@ -414,20 +491,8 @@ def page_review():
     elif j.status in ("approved", "human_review"):
         st.button("③ 서명 단계로", on_click=go, args=(PAGES[2],))
 
-    st.subheader("작업자 안내")
-    docs = p.documents(j, req)
-    lang = req.get("request_lang", "ko")
-    st.text(docs["notice_ko"])
-    if lang != "ko":
-        if st.button(f"번역: {LANGS[lang]}"):
-            with st.spinner("번역 중…"):
-                ss.notice_tr = p.translate(docs["notice_ko"], lang)
-        if ss.get("notice_tr"):
-            text, mode = ss.notice_tr
-            if text:      # 한 줄 조건식은 Streamlit 매직이 반환값(DeltaGenerator 도움말)까지 그린다
-                st.text(text)
-            else:
-                st.caption("LLM 미연결: 번역 불가 (L-C04)")
+    docs = p.documents(j, req, alternatives=ss.extra["alternatives"])
+    worker_notice(p, docs["notice_ko"], req.get("request_lang", "ko"))
 
 
 def evidence_ui(p, r, req):
@@ -572,7 +637,7 @@ def page_sign():
         return
 
     stored = dict(p.con.execute("SELECT * FROM permits WHERE id=?", (j.permit_id,)).fetchone())
-    docs = p.documents(j, req, stored["status"])
+    docs = p.documents(j, req, stored["status"], alternatives=ss.extra["alternatives"])
     status_banner(stored["status"])
     st.subheader("허가서" if stored["status"] == "issued" else "검토·서명 기록")
     signer_name = next(w["name"] for w in ctx["workers"] if w["id"] == stored["signed_by"])
@@ -585,16 +650,7 @@ def page_sign():
     if stored["status"] == "issued":
         st.subheader("서면 게시문")
         st.code(docs["posting"], language=None)
-    st.subheader("작업자 안내")
-    st.text(docs["notice_ko"])
-    lang = req.get("request_lang", "ko")
-    if lang != "ko" and st.button(f"번역: {LANGS[lang]}", key="tr_final"):
-        with st.spinner("번역 중…"):
-            text, _ = p.translate(docs["notice_ko"], lang)
-        if text:      # 한 줄 조건식은 Streamlit 매직이 반환값(DeltaGenerator 도움말)까지 그린다
-            st.text(text)
-        else:
-            st.caption("LLM 미연결: 번역 불가 (L-C04)")
+    worker_notice(p, docs["notice_ko"], req.get("request_lang", "ko"))
     if stored["status"] == "issued":
         st.button("④ 작업 감시로", on_click=go, args=(PAGES[3],))
 
@@ -643,6 +699,11 @@ def page_monitor():
         for a in res["alerts"]:
             {"stop": st.error, "warn": st.warning, "info": st.info}[a["level"]](f"{a['text']}  〔{a['source']}〕")
         st.caption("조회: " + ", ".join(res["tools"]))
+        if r["status"] == "suspended":
+            preq = json.loads(p.con.execute("SELECT request_json FROM permits WHERE id=?", (pid,)).fetchone()[0])
+            stop = [f"{a['text']} ({a['source']})" for a in res["alerts"] if a["level"] == "stop"]
+            worker_notice(p, p.worker_notice_ko(None, preq, "suspended", stop_reasons=stop),
+                          preq.get("request_lang", "ko"))
 
 
 # ─────────────────────────────────────────────

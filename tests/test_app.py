@@ -90,6 +90,33 @@ def test_s2_evidence_signature_and_monitor_through_gui():
     assert at.session_state["con"].execute("SELECT 1 FROM permits WHERE id=?", (pid,)).fetchone() is None
 
 
+def test_s3_worker_language_and_supervisor_confirmation_gui():
+    """S3(베트남어 신청자): 작업자 화면은 베트남어+한국어, 14항목은 감독자가 확인, 결과 안내 제목도 작업자 언어."""
+    at = make_app().run()
+    click(at, "S3")
+    assert at.session_state["lang"] == "vi"
+    assert any("Nội dung yêu cầu" in t.label for t in at.text_area)
+    next(b for b in at.button if "Gửi yêu cầu" in b.label).click().run()
+    assert not at.exception, at.exception
+    assert any(r.options[:1] == ["Có / 예"] for r in at.radio if "소화기" in r.label)
+    for r in at.radio:
+        if r.options[:1] == ["Có / 예"] and r.value is None:
+            r.set_value("Có / 예")
+    next(b for b in at.button if "Gửi câu trả lời" in b.label).click().run()
+    click(at, "14항목 계획 수립")
+    sup = next(s for s in at.selectbox if s.label.startswith("확인자"))
+    assert "W003" not in sup.options and sup.value == "W002"         # 신청자 본인은 확인자 후보가 아니다
+    for sb in at.selectbox:
+        if sb.label.startswith("판단 ") and sb.value == "모름":
+            sb.set_value("비해당")
+    click(at, "4) 검토 실행")
+    assert not at.exception, at.exception
+    assert at.session_state["j"].status == "rejected"
+    assert at.session_state["req"]["plan_confirmed_by"] == "W002"
+    assert any("Thông báo cho người lao động" in h.value for h in at.subheader)
+    assert any("보완 방법" in t.value for t in at.text)                # 한국어 원문(감독자 확인용)에 대안 포함
+
+
 def test_no_streamlit_magic_expression_statements():
     """호출이 아닌 표현식 문(예: `st.text(x) if x else st.caption(y)`)은 Streamlit 매직이 반환값을 화면에 그린다.
     번역 결과 아래에 DeltaGenerator 도움말이 출력되던 버그(2026-10-04) 재발 방지."""
@@ -110,8 +137,10 @@ if __name__ == "__main__":
         print("ok test_s2_flow_through_gui")
         test_s2_evidence_signature_and_monitor_through_gui()
         print("ok test_s2_evidence_signature_and_monitor_through_gui")
+        test_s3_worker_language_and_supervisor_confirmation_gui()
+        print("ok test_s3_worker_language_and_supervisor_confirmation_gui")
         test_no_streamlit_magic_expression_statements()
-        print("ok test_no_streamlit_magic_expression_statements\n3개 통과")
+        print("ok test_no_streamlit_magic_expression_statements\n4개 통과")
     finally:
         if backup.exists():
             shutil.copy(backup, db)

@@ -64,6 +64,20 @@ for _k, _v in FIELD_EN.items():
     FIELD_SPECS[_k]["en"] = _v
 FIELD_LABEL_KO = {k: v["ko"] for k, v in FIELD_SPECS.items()}
 
+# 14항목 확인자: 허가서 발급자(can_sign_permit)와 현장감독자 직책 (KOSHA C-C-49 6.1). 감독자는 한국어 사용자로 가정
+SUPERVISOR_ROLES = {"정비반장", "안전관리자", "현장감독자"}
+SAFETY_RULES = {   # 허가 발행 시 작업자 안내에 넣는 안전수칙 (근거 포함)
+    "maintenance": [
+        "작업 중 잠금장치·꼬리표를 풀거나 설비를 켜지 마십시오 (산업안전보건기준에 관한 규칙 제92조)",
+        "설비가 움직이거나 잠금이 풀린 것을 보면 즉시 작업을 멈추고 알리십시오",
+    ],
+    "hot_work": [
+        "화재감시자가 있는 상태에서만 작업하고, 소화기와 불티 비산방지 조치를 유지하십시오 (제241조, 제241조의2)",
+        "가스 냄새가 나거나 가스농도(LEL)가 10% 이상이면 즉시 작업을 멈추십시오 (KOSHA P-35)",
+        "작업이 끝난 뒤 30분 이상 불씨를 감시하십시오 (KOSHA A-G-14)",
+    ],
+}
+
 # 허가는 작업 당일에만 신청·발급한다(C-C-49 5.6). 다른 날 작업을 오늘 날짜로 잘못 처리하지 않도록 막는다.
 OTHER_DAY = re.compile(r"내일|모레|다음\s*주|다음\s*날|익일|tomorrow|next\s+week|ngày\s*mai|ngày\s*kia|tuần\s*sau", re.I)
 NO_EQUIPMENT = "없음"
@@ -315,6 +329,28 @@ class Pipeline:
         out, mode = L.plan(self.client, _public(req), self.facts(req, now))
         return out, mode
 
+    def plan_confirmers(self, req):
+        """14항목 확인자 후보: 허가서 발급자(서명권자)와 현장감독자. 신청자 본인은 제외 (KOSHA C-C-49 6.1)."""
+        rows = self.con.execute("SELECT id, name, role, can_sign_permit FROM workers ORDER BY id").fetchall()
+        ok = [dict(r) for r in rows
+              if (r["can_sign_permit"] or r["role"] in SUPERVISOR_ROLES) and r["id"] != req.get("requester")]
+        return sorted(ok, key=lambda w: -w["can_sign_permit"])        # 허가서 발급자를 먼저
+
+    def confirm_plan(self, req, planning, answers, confirmer):
+        """감독자가 14항목을 확인·확정한다. 바꾼 칸에는 확인자를 남기고, 확인자는 신청 정보(req)에 기록한다."""
+        ok = {w["id"]: w for w in self.plan_confirmers(req)}
+        if confirmer not in ok:
+            raise PermissionError("14항목은 현장감독자·허가서 발급자가 확인합니다 (신청자 본인 불가, KOSHA C-C-49 6.1)")
+        w = ok[confirmer]
+        out = dict(planning)
+        for k, a in answers.items():
+            if a not in ("해당", "비해당", "모름"):
+                raise ValueError(f"14항목 {k}: 해당·비해당·모름 중 하나여야 합니다")
+            if a != planning[k]["answer"]:
+                out[k] = {"answer": a, "reason": f"[감독자 확인] {w['name']}({w['role']})"}
+        req["plan_confirmed_by"] = confirmer
+        return out
+
     # ── 4. 판정 + 모순 강화 + 대안 ──
     def review(self, req, planning, now, weather=None):
         if req.get("_out_of_scope"):
@@ -500,7 +536,7 @@ class Pipeline:
         return status
 
     # ── 6. 문서 ──
-    def documents(self, j: Judgment, req, final_status=None, resolutions=None):
+    def documents(self, j: Judgment, req, final_status=None, resolutions=None, alternatives=None):
         status = final_status or j.status
         resolutions = resolutions or {}
         stored = self.con.execute("SELECT * FROM permits WHERE id=?", (j.permit_id,)).fetchone()
@@ -551,20 +587,32 @@ class Pipeline:
             f"장소: {z}", f"작업자: {crew}" + (f" / 화재감시자: {fw}" if req["work_type"] == "hot_work" else ""),
             "안전조치: " + ", ".join(r.name for r in checks if r.outcome == "pass")[:300]])
 
-        notice_ko = self.worker_notice_ko(j, req, status)
+        notice_ko = self.worker_notice_ko(j, req, status, alternatives)
         return {"permit_md": permit_md, "posting": posting, "notice_ko": notice_ko}
 
-    def worker_notice_ko(self, j, req, status):
+    def worker_notice_ko(self, j, req, status, alternatives=None, stop_reasons=None):
+        """작업자가 알아야 할 결과·이유(법 조항)·할 일·안전수칙. 화면에서는 신청자 언어로 번역해 보여 준다."""
         head = {"issued": "작업이 허가되었습니다.", "approved": "검토를 통과했습니다. 허가권자 서명을 기다립니다.",
                 "conditional": "아래 조치를 하면 다시 확인합니다.", "human_review": "안전관리자가 확인 중입니다.",
                 "rejected": "이 작업은 지금 할 수 없습니다.", "suspended": "작업을 즉시 멈추십시오."}.get(status, status)
         parts = [head]
-        for r in j.active():
+        for r in (j.active() if j else []):
             if r.outcome == "reject":
                 cl = r.clause if isinstance(r.clause, str) else ""
                 parts.append(f"- 이유: {r.name} ({r.source_title.split('(')[0].strip()} {cl})".replace(" )", ")"))
             elif r.outcome == "conditional":
                 parts += [f"- 해야 할 일: {c}" for c in r.conditions]
+        if status == "rejected" and alternatives:
+            parts += [f"- 보완 방법: {a['text']}" for a in alternatives]
+        if status == "suspended":
+            parts += [f"- 중지 이유: {x}" for x in (stop_reasons or [])]
+            parts.append("- 현장 책임자에게 알리고, 새로 허가를 받은 뒤에만 다시 작업할 수 있습니다.")
+        if status == "issued":
+            parts.append(f"- 허가 시간: {req.get('start', '')[11:16]}~{req.get('end', '')[11:16]} (시간이 지나면 다시 신청)")
+            parts += [f"- 지켜야 할 안전수칙: {x}" for x in SAFETY_RULES[req["work_type"]]]
+            if req.get("task") in DIE_TASKS:
+                parts.append("- 지켜야 할 안전수칙: 금형 사이에 손·몸을 넣을 때는 반드시 안전블록을 사용 "
+                             "(산업안전보건기준에 관한 규칙 제104조)")
         return "\n".join(parts)
 
     def translate(self, text_ko, lang):

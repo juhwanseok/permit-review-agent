@@ -50,9 +50,19 @@ ss = st.session_state
 # 상태
 # ─────────────────────────────────────────────
 def reset_db():
+    # 파일을 지우지 않고 새 시드 DB를 내용째 복사한다. 다른 브라우저 세션이 연결을 잡고 있어도
+    # Windows 파일 잠금으로 실패하지 않는다.
+    tmp = DB.with_name("permit_demo.seed.db")
+    seed.build(tmp, date.fromisoformat(sc.DEMO_DATE))
+    src, dst = sqlite3.connect(tmp), sqlite3.connect(DB)
+    try:
+        src.backup(dst)
+    finally:
+        src.close()
+        dst.close()
+        tmp.unlink(missing_ok=True)
     if "con" in ss:
         ss.con.close()
-    seed.build(DB, date.fromisoformat(sc.DEMO_DATE))
     for k in ("con", "pl", "raw", "req", "planning", "j", "extra", "final", "docs", "photo", "round", "notice_tr"):
         ss.pop(k, None)
 
@@ -122,6 +132,10 @@ def weather():
 def load_scenario(name):
     s = sc.ALL[name]
     r = s["request"]
+    # 같은 시나리오를 다시 돌리면 이전 실행의 잠금·증빙·서명이 남아 결과가 달라진다 → 데모 DB를 새로 만든다
+    if pl().con.execute("SELECT 1 FROM permits WHERE id=?", (r["permit_id"],)).fetchone():
+        reset_db()
+        st.toast(f"{name} 이전 실행 기록이 있어 데모 DB를 초기화했습니다.")
     ss.text, ss.requester, ss.lang = r["request_text"], r["requester"], r.get("request_lang", "ko")
     h, m = map(int, s["now"][11:16].split(":"))
     ss.clock = time(h, m)
@@ -533,7 +547,7 @@ def page_sign():
                 with st.container(border=True):
                     st.markdown(md(f"**{r.rule_id} {r.name}** 〔{r.grade}〕  \n{r.reason or r.facts}"))
                     d = st.radio("결정", ["수용(허가)", "불수용(반려)"], index=None, horizontal=True, key=f"hr_{r.rule_id}")
-                    note = st.text_input("메모", key=f"hn_{r.rule_id}")
+                    note = st.text_input("결정 사유 (필수)", key=f"hn_{r.rule_id}", placeholder="예: 정비 범위에 진동 원인 점검 포함 확인")
                     if d:
                         res[r.rule_id] = {"decision": "accept" if d.startswith("수용") else "reject", "note": note}
         if j.status == "conditional":

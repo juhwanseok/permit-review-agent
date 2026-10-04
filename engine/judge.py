@@ -267,8 +267,9 @@ class Judge:
         current = self.evaluate(j.context["request"], j.context["planning"], now,
                                 weather=j.context["weather"], persist=False)
         previous = {r.rule_id: r.outcome for r in j.results}
-        if any(previous.get(r.rule_id) != r.outcome and self.rb.stronger(r.outcome, previous.get(r.rule_id, "pass"))
-               for r in current.results):
+        # 조치가 필요한 결과(reject·conditional·human_review·warn)로 바뀐 경우만 막는다. n/a→pass 같은 변화는 무시
+        if any(r.outcome in self.rb.order and previous.get(r.rule_id) != r.outcome
+               and self.rb.stronger(r.outcome, previous.get(r.rule_id, "pass")) for r in current.results):
             raise ValueError("서명 시점의 측정 유효성·판정이 달라졌습니다. 재검증하세요")
         if j.status == "conditional":
             raise ValueError("조건부 항목이 남아 있다. 증빙 제출 후 재판정해야 서명할 수 있다")

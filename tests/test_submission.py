@@ -252,6 +252,37 @@ def test_unsigned_document_cannot_claim_issued():
     blocked(lambda: p.documents(j, r, "issued"))
 
 
+def test_signature_ignores_harmless_na_to_pass_change():
+    """서명 시 재판정에서 비적용→통과 변화는 '강화'가 아니므로 서명을 막지 않는다 (2026-10-04)."""
+    p = fresh(); r, j = s1(p)
+    na = next(x.rule_id for x in j.results if x.outcome == "n/a")
+    original = p.judge.evaluate
+
+    def evaluate(*args, **kw):
+        cur = original(*args, **kw)
+        for x in cur.results:
+            if x.rule_id == na:
+                x.outcome = "pass"
+        return cur
+    p.judge.evaluate = evaluate
+    assert p.judge.sign(j, "W002", sc.S1["now"]) == "issued"
+
+
+def test_signature_still_blocks_new_risk_at_signing():
+    p = fresh(); r, j = s1(p)
+    rid = next(x.rule_id for x in j.results if x.outcome == "pass")
+    original = p.judge.evaluate
+
+    def evaluate(*args, **kw):
+        cur = original(*args, **kw)
+        for x in cur.results:
+            if x.rule_id == rid:
+                x.outcome = "conditional"
+        return cur
+    p.judge.evaluate = evaluate
+    blocked(lambda: p.judge.sign(j, "W002", sc.S1["now"]))
+
+
 if __name__ == "__main__":
     tests = [v for k, v in list(globals().items()) if k.startswith("test_")]
     for test in tests:

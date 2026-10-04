@@ -68,7 +68,7 @@ def test_s2_evidence_signature_and_monitor_through_gui():
         if r.label == "결정":
             r.set_value("수용(허가)")
     for t in at.text_input:
-        if t.label == "메모":
+        if t.label == "결정 사유 (필수)":
             t.set_value("금형 교체와 함께 진동 원인을 현장에서 점검")
     click(at, "✍ 서명 (허가서 발행)")
     assert not at.exception, at.exception
@@ -79,6 +79,13 @@ def test_s2_evidence_signature_and_monitor_through_gui():
     assert not at.exception, at.exception
     con = at.session_state["con"]
     assert con.execute("SELECT status FROM permits WHERE id=?", (at.session_state["j"].permit_id,)).fetchone()[0] == "suspended"
+    # 같은 시나리오를 다시 불러오면 데모 DB를 새로 만든다 (서명된 허가번호 재사용 오류 방지, 2026-10-04)
+    pid = at.session_state["j"].permit_id
+    click(at, "S2")
+    assert not at.exception, at.exception
+    click(at, "1) 신청 구조화")
+    assert not at.exception, at.exception
+    assert at.session_state["con"].execute("SELECT 1 FROM permits WHERE id=?", (pid,)).fetchone() is None
 
 
 if __name__ == "__main__":

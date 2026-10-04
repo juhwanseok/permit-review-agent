@@ -40,6 +40,13 @@ def validate(doc):
             errors.append(f"{rid}: 알 수 없는 판정 {action!r}")
         elif order.index(action) < order.index(cap):
             errors.append(f"{rid}: 판정 '{action}'이 {grade} 등급 상한 '{cap}'을 초과")
+        if "task_scope" in r:
+            # 조문 대상 작업 밖의 판정은 설계 판단이므로 설계 등급 상한을 넘을 수 없다
+            oos, design_cap = r.get("out_of_scope_on_fail"), policy["설계"]
+            if not isinstance(r["task_scope"], list) or not r["task_scope"]:
+                errors.append(f"{rid}: task_scope는 작업 목록이어야 함")
+            if oos not in order or order.index(oos) < order.index(design_cap):
+                errors.append(f"{rid}: out_of_scope_on_fail {oos!r}이 설계 등급 상한 '{design_cap}'을 초과")
         if action == "conditional" and not r.get("conditions"):
             errors.append(f"{rid}: conditional인데 conditions 없음")
         clauses = sources[sid].get("clauses")

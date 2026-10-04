@@ -194,6 +194,16 @@ def test_s3_variant_routine_booth_exempt():
     assert j.status == "approved"
 
 
+def test_h01_legal_reject_only_for_welding_and_cutting():
+    # 제241조의2①: '용접ㆍ용단 작업' 대상. 연마·드릴은 자동 법정 반려가 아니라 사람 판단
+    for task, want in [("용접", "reject"), ("용단", "reject"), ("연마", "human_review"), ("드릴", "human_review")]:
+        _, j = run(sc.S3, mutate_req=lambda r: r.update(task=task))
+        h01 = j.by_id("H-01")
+        assert h01.outcome == want, (task, h01.outcome)
+        assert (want == "reject") == ("용접·용단" not in h01.reason), (task, h01.reason)
+        assert outcome(j, "H-11") == "reject" and j.status != "approved"   # 다른 화재위험작업 규칙은 그대로
+
+
 def test_s3_missing_fire_watch_key_is_unknown_not_fail():
     _, j = run(sc.S3, mutate_req=lambda r: r.pop("fire_watch"))
     assert outcome(j, "H-01") == "human_review" and "fire_watch" in j.missing_fields

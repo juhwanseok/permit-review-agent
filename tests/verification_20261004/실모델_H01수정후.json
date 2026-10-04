@@ -1,0 +1,463 @@
+{
+  "model": "gemma4:31b",
+  "date": "2026-10-04 20:35",
+  "scenarios": {
+    "S1": {
+      "structured": {
+        "work_type": "maintenance",
+        "equipment_id": "P-05",
+        "zone_id": "L1",
+        "task": "점검",
+        "start_hhmm": null,
+        "end_hhmm": null,
+        "extra_workers": [],
+        "fire_watch": null,
+        "body_in_danger_zone": null,
+        "safety_block_used": null,
+        "die_precheck_completed": null,
+        "extinguisher_placed": null,
+        "spark_barrier": null,
+        "ventilation_done": null,
+        "excess_combustibles_removed": null,
+        "post_work_fire_watch_min": null,
+        "gas_remeasure_plan_4h": null,
+        "rest_plan_2h_20m": null,
+        "risk_assessment_done": null,
+        "claimed_no_combustibles": null,
+        "claimed_machine_stopped": null,
+        "emergency": false,
+        "summary_ko": "5호기 프레스의 이상 소음 점검을 신청함."
+      },
+      "asked": [
+        "start_hhmm",
+        "end_hhmm",
+        "crew"
+      ],
+      "unanswered": [],
+      "planning": {
+        "1": {
+          "answer": "비해당",
+          "reason": "[데이터] 구역 유형 '일반'"
+        },
+        "2": {
+          "answer": "해당",
+          "reason": "[데이터] 설비 전기 차단점 있음"
+        },
+        "3": {
+          "answer": "비해당",
+          "reason": "[데이터] 구역 유형 '일반'"
+        },
+        "4": {
+          "answer": "비해당",
+          "reason": "[LLM] 작업 내용이 '점검'이며 방사선 사용에 대한 언급 없음"
+        },
+        "5": {
+          "answer": "비해당",
+          "reason": "[사람 확정]"
+        },
+        "6": {
+          "answer": "비해당",
+          "reason": "[LLM] 인화성·독성물질 발생 및 처리 방법에 대한 정보 없음"
+        },
+        "7": {
+          "answer": "해당",
+          "reason": "[데이터] 잔류에너지 '유압,중력(슬라이드)'"
+        },
+        "8": {
+          "answer": "해당",
+          "reason": "[데이터] 잔류에너지 '유압,중력(슬라이드)'"
+        },
+        "9": {
+          "answer": "비해당",
+          "reason": "[LLM] 구역 유형이 '일반'이며 가스 농도 측정 및 환기 필요성 언급 없음"
+        },
+        "10": {
+          "answer": "비해당",
+          "reason": "[사람 확정]"
+        },
+        "11": {
+          "answer": "비해당",
+          "reason": "[사람 확정]"
+        },
+        "12": {
+          "answer": "비해당",
+          "reason": "[사람 확정]"
+        },
+        "13": {
+          "answer": "비해당",
+          "reason": "[사람 확정]"
+        },
+        "14": {
+          "answer": "비해당",
+          "reason": "[사람 확정]"
+        }
+      },
+      "plan_mode": "hybrid",
+      "unknown_after_llm": [
+        "5",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14"
+      ],
+      "status_before_human_plan": "human_review",
+      "status": "approved",
+      "active": [],
+      "findings": [],
+      "notice_vi": null,
+      "check": {
+        "equipment_id": "OK",
+        "task": "OK",
+        "work_type": "OK",
+        "status": "OK"
+      }
+    },
+    "S2": {
+      "structured": {
+        "work_type": "maintenance",
+        "equipment_id": "P-03",
+        "zone_id": "L1",
+        "task": "금형교체",
+        "start_hhmm": "13:00",
+        "end_hhmm": "15:00",
+        "extra_workers": [],
+        "fire_watch": null,
+        "body_in_danger_zone": null,
+        "safety_block_used": null,
+        "die_precheck_completed": null,
+        "extinguisher_placed": null,
+        "spark_barrier": null,
+        "ventilation_done": null,
+        "excess_combustibles_removed": null,
+        "post_work_fire_watch_min": null,
+        "gas_remeasure_plan_4h": null,
+        "rest_plan_2h_20m": null,
+        "risk_assessment_done": null,
+        "claimed_no_combustibles": null,
+        "claimed_machine_stopped": null,
+        "emergency": null,
+        "summary_ko": "W001 작업자가 13시부터 15시까지 3호기 프레스의 금형 교체 작업을 신청함."
+      },
+      "asked": [
+        "body_in_danger_zone",
+        "die_precheck_completed",
+        "crew",
+        "safety_block_used"
+      ],
+      "unanswered": [],
+      "planning": {
+        "1": {
+          "answer": "비해당",
+          "reason": "[데이터] 구역 유형 '일반'"
+        },
+        "2": {
+          "answer": "해당",
+          "reason": "[데이터] 설비 전기 차단점 있음"
+        },
+        "3": {
+          "answer": "비해당",
+          "reason": "[데이터] 구역 유형 '일반'"
+        },
+        "4": {
+          "answer": "비해당",
+          "reason": "[LLM] 작업 내용이 '금형교체'임"
+        },
+        "5": {
+          "answer": "비해당",
+          "reason": "[LLM] 작업 내용이 '금형교체'이며 '3호기 프레스'에서 수행됨"
+        },
+        "6": {
+          "answer": "비해당",
+          "reason": "[LLM] 작업 내용이 '금형교체'임"
+        },
+        "7": {
+          "answer": "해당",
+          "reason": "[데이터] 잔류에너지 '유압,중력(슬라이드)'"
+        },
+        "8": {
+          "answer": "해당",
+          "reason": "[데이터] 잔류에너지 '유압,중력(슬라이드)'"
+        },
+        "9": {
+          "answer": "비해당",
+          "reason": "[LLM] 구역 유형 '일반'이며 작업 내용이 '금형교체'임"
+        },
+        "10": {
+          "answer": "비해당",
+          "reason": "[사람 확정]"
+        },
+        "11": {
+          "answer": "비해당",
+          "reason": "[사람 확정]"
+        },
+        "12": {
+          "answer": "비해당",
+          "reason": "[사람 확정]"
+        },
+        "13": {
+          "answer": "비해당",
+          "reason": "[사람 확정]"
+        },
+        "14": {
+          "answer": "비해당",
+          "reason": "[사람 확정]"
+        }
+      },
+      "plan_mode": "hybrid",
+      "unknown_after_llm": [
+        "10",
+        "11",
+        "12",
+        "13",
+        "14"
+      ],
+      "status_before_human_plan": "conditional",
+      "status": "conditional",
+      "active": [
+        [
+          "M-02b",
+          "conditional",
+          ""
+        ],
+        [
+          "M-09",
+          "human_review",
+          ""
+        ],
+        [
+          "SP-01",
+          "warn",
+          "30일 안에 진동 이상 2회: 진동 원인 점검을 정비 범위에 포함 권고"
+        ]
+      ],
+      "findings": [],
+      "notice_vi": null,
+      "check": {
+        "equipment_id": "OK",
+        "task": "OK",
+        "work_type": "OK",
+        "status": "OK"
+      }
+    },
+    "S3": {
+      "structured": {
+        "work_type": "hot_work",
+        "equipment_id": "WD-01",
+        "zone_id": "W2",
+        "task": "용접",
+        "start_hhmm": "14:00",
+        "end_hhmm": "16:00",
+        "extra_workers": [],
+        "fire_watch": null,
+        "body_in_danger_zone": null,
+        "safety_block_used": null,
+        "die_precheck_completed": null,
+        "extinguisher_placed": null,
+        "spark_barrier": null,
+        "ventilation_done": null,
+        "excess_combustibles_removed": null,
+        "post_work_fire_watch_min": null,
+        "gas_remeasure_plan_4h": null,
+        "rest_plan_2h_20m": null,
+        "risk_assessment_done": null,
+        "claimed_no_combustibles": true,
+        "claimed_machine_stopped": null,
+        "emergency": null,
+        "summary_ko": "2라인에서 브래킷 용접 작업을 신청함."
+      },
+      "asked": [
+        "fire_watch",
+        "extinguisher_placed",
+        "spark_barrier",
+        "ventilation_done",
+        "excess_combustibles_removed",
+        "post_work_fire_watch_min",
+        "crew"
+      ],
+      "unanswered": [],
+      "planning": {
+        "1": {
+          "answer": "비해당",
+          "reason": "[데이터] 구역 유형 '일반'"
+        },
+        "2": {
+          "answer": "비해당",
+          "reason": "[LLM] has_electric_isolation 'false'"
+        },
+        "3": {
+          "answer": "비해당",
+          "reason": "[데이터] 구역 유형 '일반'"
+        },
+        "4": {
+          "answer": "비해당",
+          "reason": "[LLM] 작업 내용 '용접'"
+        },
+        "5": {
+          "answer": "비해당",
+          "reason": "[사람 확정]"
+        },
+        "6": {
+          "answer": "해당",
+          "reason": "[데이터] 11m 이내 가연물: 도장 부스 7.0m"
+        },
+        "7": {
+          "answer": "비해당",
+          "reason": "[데이터] 잔류에너지 '없음'"
+        },
+        "8": {
+          "answer": "비해당",
+          "reason": "[데이터] 잔류에너지 '없음'"
+        },
+        "9": {
+          "answer": "해당",
+          "reason": "[데이터] 화기작업 가스농도 측정 (C-C-49 7.1(3)(나))"
+        },
+        "10": {
+          "answer": "해당",
+          "reason": "[데이터] 화기작업 소화설비 (C-C-49 7.1(3))"
+        },
+        "11": {
+          "answer": "해당",
+          "reason": "[데이터] 화기작업 작업구역 설정 (C-C-49 7.1(3)(가))"
+        },
+        "12": {
+          "answer": "해당",
+          "reason": "[데이터] 11m 이내 가연물 → 화재감시자 (제241조의2)"
+        },
+        "13": {
+          "answer": "비해당",
+          "reason": "[사람 확정]"
+        },
+        "14": {
+          "answer": "비해당",
+          "reason": "[사람 확정]"
+        }
+      },
+      "plan_mode": "hybrid",
+      "unknown_after_llm": [
+        "5",
+        "13",
+        "14"
+      ],
+      "status_before_human_plan": "rejected",
+      "status": "rejected",
+      "active": [
+        [
+          "H-01",
+          "reject",
+          ""
+        ],
+        [
+          "H-11",
+          "reject",
+          ""
+        ],
+        [
+          "X-01",
+          "human_review",
+          ""
+        ],
+        [
+          "INC-01",
+          "human_review",
+          "배치도상 11m 이내 가연물: 도장 부스 7.0m(도료,신너) (탐지: 규칙)"
+        ]
+      ],
+      "findings": [
+        {
+          "claim": "신청서 '주변에 가연물 없음'",
+          "evidence": "배치도상 11m 이내 가연물: 도장 부스 7.0m(도료,신너)",
+          "severity": "human_review",
+          "related_rule": "H-06",
+          "by": "rule"
+        }
+      ],
+      "notice_vi": "Công việc này hiện không thể thực hiện.\n- Lý do: Nếu có vật liệu dễ cháy trong vòng 11m, phải bố trí người giám sát hỏa hoạn (Quy tắc tiêu chuẩn an toàn vệ sinh lao động Điều 241-2)\n- Lý do: Phải hoàn thành đào tạo đặc biệt về công việc có nguy cơ hỏa hoạn (Quy tắc thi hành Luật an toàn vệ sinh lao động Phụ lục 5 Mục 1-ra Số 38)",
+      "check": {
+        "zone_id": "OK",
+        "work_type": "OK",
+        "claimed_no_combustibles": "OK",
+        "status": "OK"
+      }
+    }
+  },
+  "vision": {
+    "lock_and_tag.png": {
+      "padlock_present": true,
+      "tag_present": true,
+      "tag_name": "김정비",
+      "observation": "P-03 주전원 차단기에 노란색 자물쇠가 체결되어 있으며, '위험 조작금지 DO NOT 김정비'라고 적힌 꼬리표가 함께 달려 있습니다.",
+      "check": "OK"
+    },
+    "tag_only.png": {
+      "padlock_present": false,
+      "tag_present": true,
+      "tag_name": "김정비",
+      "observation": "꼬리표(태그)만 확인되며, 자물쇠는 보이지 않습니다.",
+      "check": "OK"
+    }
+  },
+  "calls": [
+    {
+      "purpose": "신청 구조화",
+      "seconds": 9.7
+    },
+    {
+      "purpose": "14항목 계획(미확정 항목)",
+      "seconds": 8.1
+    },
+    {
+      "purpose": "모순 탐지",
+      "seconds": 1.0
+    },
+    {
+      "purpose": "모순 탐지",
+      "seconds": 0.6
+    },
+    {
+      "purpose": "신청 구조화",
+      "seconds": 9.7
+    },
+    {
+      "purpose": "14항목 계획(미확정 항목)",
+      "seconds": 8.0
+    },
+    {
+      "purpose": "모순 탐지",
+      "seconds": 1.0
+    },
+    {
+      "purpose": "모순 탐지",
+      "seconds": 0.6
+    },
+    {
+      "purpose": "신청 구조화",
+      "seconds": 9.3
+    },
+    {
+      "purpose": "14항목 계획(미확정 항목)",
+      "seconds": 4.3
+    },
+    {
+      "purpose": "모순 탐지",
+      "seconds": 1.3
+    },
+    {
+      "purpose": "모순 탐지",
+      "seconds": 0.6
+    },
+    {
+      "purpose": "번역(vi)",
+      "seconds": 3.4
+    },
+    {
+      "purpose": "증빙 사진 판독",
+      "seconds": 3.0
+    },
+    {
+      "purpose": "증빙 사진 판독",
+      "seconds": 2.2
+    }
+  ]
+}

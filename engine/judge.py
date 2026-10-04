@@ -143,6 +143,10 @@ class Judge:
                 outcome, reason = "human_review", "필요한 데이터 없음 (DP-03)"
             elif chk.passed:
                 outcome, reason = "pass", ""
+            elif "task_scope" in rule and req.get("task") not in rule["task_scope"]:
+                # 조문 대상 작업(예: 제241조의2 용접·용단) 밖이면 법정 판정 대신 사람 판단 (설계)
+                outcome = rule["out_of_scope_on_fail"]
+                reason = f"조문 대상 작업({'·'.join(rule['task_scope'])}) 밖의 '{req.get('task')}' 작업 — 사람 판단 (설계)"
             else:
                 outcome, reason = rule["on_fail"], ""
             results.append(RuleResult(

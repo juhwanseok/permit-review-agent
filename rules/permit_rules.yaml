@@ -352,6 +352,10 @@ rules:
     applies_when: "site_map.combustibles_within(request.location, 11) and not (zone.routine_hot_work and zone.alarm_and_extinguisher)"
     check: {tool: request, expr: "request.fire_watch_assigned == true"}
     on_fail: reject
+    # 제241조의2①은 '용접ㆍ용단 작업'만 대상으로 한다. 연마·드릴은 같은 조건이어도 법정 반려하지 않고
+    # 화재감시자 배치 여부를 사람이 판단한다 (설계값 — 드릴·연마가 안전하다는 뜻이 아님)
+    task_scope: [용접, 용단]
+    out_of_scope_on_fail: human_review
     source: SR-241-2
   - id: H-02
     name: "소화기구 비치"

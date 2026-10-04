@@ -1,0 +1,62 @@
+{
+  "test_count": 101,
+  "passed": true,
+  "commands": [
+    {
+      "command": [
+        "rules/validate_rules.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "tests/test_validate_rules.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "tests/test_seed.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "tests/test_engine.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "tests/test_pipeline.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "tests/test_hardening.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "tests/test_app.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "tests/test_submission.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "-m",
+        "engine.demo",
+        "all"
+      ],
+      "exit_code": 0
+    }
+  ]
+}

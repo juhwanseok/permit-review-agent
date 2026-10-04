@@ -335,6 +335,8 @@ def question_widget(q, label, ctx):
 
 
 def run_review(p):
+    for key in ("final", "docs", "signed_by", "signed_at", "notice_tr"):
+        ss.pop(key, None)
     try:
         with st.spinner("상태 조회 → 규칙 판정 → 모순 탐지 중…"):
             ss.j, ss.extra = p.review(ss.req, ss.planning, now(), weather=weather())
@@ -430,7 +432,8 @@ def evidence_ui(p, r, req):
                 name = "lock_and_tag.png" if "자물쇠" in src else "tag_only.png"
                 data = (SAMPLES / name).read_bytes()
             EVID_DIR.mkdir(parents=True, exist_ok=True)
-            path = EVID_DIR / f"{req['permit_id']}_{point}_{name}"
+            import uuid
+            path = EVID_DIR / f"{uuid.uuid4().hex}{Path(name).suffix.lower()}"
             path.write_bytes(data)
             with st.spinner("VLM 판독 중…"):
                 ss.photo = {**p.submit_photo_lock(req, point, data, str(path.relative_to(ROOT)), now()),
@@ -459,8 +462,14 @@ def evidence_ui(p, r, req):
             st.success("가스 측정값 기록됨. 재검증하세요.")
     elif kind == "loto_check":
         m = st.text_input("확인 방법", "기동 스위치 시동 시도 → 무반응", key=key + "m")
+        released = st.radio("잔류에너지 제거 결과", ["미확인", "완료", "실패"], key=key + "released")
+        verified = st.radio("차단 검증 결과", ["미확인", "성공", "실패"], key=key + "verified")
         if st.button("차단 확인 기록", key=key + "go"):
-            p.submit_loto_check(req, m, now(), req["requester"])
+            if "미확인" in (released, verified):
+                st.error("두 확인 결과를 각각 선택하세요.")
+                return
+            p.submit_loto_check(req, m, now(), req["requester"],
+                                 stored_energy_released=released == "완료", isolation_verified=verified == "성공")
             st.success("기록됨. 재검증하세요.")
     elif kind == "procedure":
         t = st.text_input("절차서 제목", f"{req.get('equipment_id')} LOTO 절차서", key=key + "t")
@@ -485,9 +494,16 @@ def evidence_ui(p, r, req):
             req["zone_id"] = z
             st.success("정정됨. 재검증하세요.")
     elif kind == "permit":
-        if st.button("정전작업 보충허가 발급", key=key + "go"):
-            p.submit_supplementary_permit(req, now())
-            st.success("발급됨. 재검증하세요.")
+        signers = [dict(w) for w in p.con.execute("SELECT id, name FROM workers WHERE can_sign_permit=1")]
+        who = st.selectbox("보충허가 서명자", [w["id"] for w in signers],
+                            format_func=lambda x: next(w["name"] for w in signers if w["id"] == x), key=key + "signer")
+        checked = st.checkbox("대상 설비의 정전·차단 안전조치를 현장에서 확인했습니다", key=key + "checked")
+        if st.button("사람 확인·서명 후 보충허가 발급", disabled=not checked, key=key + "go"):
+            try:
+                p.submit_supplementary_permit(req, now(), who, verified=checked)
+                st.success("사람 서명으로 발급됨. 재검증하세요.")
+            except (ValueError, PermissionError) as e:
+                st.error(str(e))
 
 
 # ─────────────────────────────────────────────
@@ -535,14 +551,18 @@ def page_sign():
                 st.error(str(e))
         return
 
-    docs = ss.docs
-    st.subheader("허가서")
-    signer_name = next(w["name"] for w in ctx["workers"] if w["id"] == ss.signed_by)
+    stored = dict(p.con.execute("SELECT * FROM permits WHERE id=?", (j.permit_id,)).fetchone())
+    docs = p.documents(j, req, stored["status"])
+    status_banner(stored["status"])
+    st.subheader("허가서" if stored["status"] == "issued" else "검토·서명 기록")
+    signer_name = next(w["name"] for w in ctx["workers"] if w["id"] == stored["signed_by"])
     signed = docs["permit_md"].replace("- 허가권자: ________ (서명 전까지 효력 없음)",
-                                       f"- 허가권자: {signer_name} (서명 {ss.signed_at.replace('T', ' ')})")
+                                       f"- 허가권자: {signer_name} (서명 {stored['signed_at'].replace('T', ' ')})")
     st.markdown(md(signed))
     st.download_button("허가서 내려받기 (.md)", signed, file_name=f"{j.permit_id}.md")
-    if ss.final == "issued":
+    if stored["status"] in ("suspended", "closed"):
+        st.warning("허가 상태: " + stored["status"] + " — 기존 허가서의 작업 효력은 없습니다.")
+    if stored["status"] == "issued":
         st.subheader("서면 게시문")
         st.code(docs["posting"], language=None)
     st.subheader("작업자 안내")
@@ -552,7 +572,7 @@ def page_sign():
         with st.spinner("번역 중…"):
             text, _ = p.translate(docs["notice_ko"], lang)
         st.text(text) if text else st.caption("LLM 미연결: 번역 불가 (L-C04)")
-    if ss.final == "issued":
+    if stored["status"] == "issued":
         st.button("④ 작업 감시로", on_click=go, args=(PAGES[3],))
 
 
@@ -564,7 +584,7 @@ def page_monitor():
     p = pl()
     rows = [dict(r) for r in p.con.execute(
         "SELECT id, type, task, zone_id, equipment_id, start_ts, end_ts, status FROM permits "
-        "WHERE status IN ('issued','suspended') AND request_json IS NOT NULL ORDER BY start_ts")]
+        "WHERE status IN ('issued','suspended','closed') AND request_json IS NOT NULL ORDER BY start_ts")]
     if not rows:
         st.info("발행된 허가가 없습니다.")
         return

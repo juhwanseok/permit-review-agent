@@ -392,22 +392,53 @@ class Pipeline:
     }
 
     def submit_photo_lock(self, req, point_id, image_bytes, image_name, now):
-        """사진 판독 → 자물쇠 확인 시 LOTO 대장 갱신. 불확실하면 사람 확인 대기."""
-        pt = dict(self.con.execute("SELECT * FROM isolation_points WHERE id=?", (point_id,)).fetchone())
+        """사진 판독은 보조 정보다. 대장 갱신은 연결된 증빙의 사람 확인 후 수행한다."""
+        self._editable(req)
+        pt = self.con.execute("SELECT * FROM isolation_points WHERE id=?", (point_id,)).fetchone()
+        if not pt or pt["equipment_id"] != req.get("equipment_id") or not image_bytes:
+            raise ValueError("대상 설비의 차단점과 사진이 필요합니다")
+        pt = dict(pt)
         vis, vmode = L.read_lock_photo(self.client, image_bytes, f"{pt['equipment_id']} {pt['description']}")
-        ok = bool(vis and vis["padlock_present"])
         summary = (f"자물쇠 {'있음' if vis['padlock_present'] else '없음'}, 꼬리표 {vis.get('tag_name') or '-'}: "
                    f"{vis['observation']}") if vis else "VLM 미연결: 사람 확인 필요"
-        eid = self.judge.submit_evidence(req["permit_id"], "M-02b", now, image_name, vlm_result=summary)
-        if ok:
-            self._lock(point_id, now)
-        return {"evidence_id": eid, "vlm": vis, "mode": vmode, "registry_updated": ok, "summary": summary}
+        eid = self.judge.submit_evidence(req["permit_id"], "M-02b", now, image_name,
+                                         value={"point_id": point_id, "equipment_id": pt["equipment_id"]}, vlm_result=summary)
+        self.con.commit()
+        return {"evidence_id": eid, "vlm": vis, "mode": vmode, "registry_updated": False, "summary": summary}
 
     def confirm_photo(self, evidence_id, point_id, confirmed, now, by):
+        self._actor(by, signer=True)
+        if type(confirmed) is not bool:
+            raise ValueError("사진 확인 결과는 참/거짓이어야 합니다")
+        ev = self.con.execute("SELECT * FROM evidence WHERE id=?", (evidence_id,)).fetchone()
+        pt = self.con.execute("SELECT * FROM isolation_points WHERE id=?", (point_id,)).fetchone()
+        if not ev or not pt or ev["rule_id"] != "M-02b" or not ev["image_path"]:
+            raise ValueError("실재하는 잠금 사진 증빙과 차단점이 필요합니다")
+        p = self.con.execute("SELECT * FROM permits WHERE id=?", (ev["permit_id"],)).fetchone()
+        data = json.loads(ev["value_json"] or "{}")
+        if not p or p["equipment_id"] != pt["equipment_id"] or data.get("point_id") != point_id:
+            raise ValueError("증빙·허가·차단점의 대상이 일치하지 않습니다")
+        self._editable(json.loads(p["request_json"]))
+        if datetime.fromisoformat(now) < datetime.fromisoformat(ev["submitted_at"]):
+            raise ValueError("확인 시각은 사진 제출 시각 이후여야 합니다")
         self.con.execute("UPDATE evidence SET human_confirmed=? WHERE id=?", (1 if confirmed else 0, evidence_id))
         if confirmed:
             self._lock(point_id, now)
+        self.judge._log(ev["permit_id"], now, "증빙확인", None, "M-02b", None,
+                        "confirmed" if confirmed else "denied", json.dumps({"by": by, "evidence": evidence_id, "point": point_id}))
         self.con.commit()
+
+    def _actor(self, by, signer=False):
+        w = self.con.execute("SELECT * FROM workers WHERE id=?", (by,)).fetchone()
+        if not w or (signer and not w["can_sign_permit"]):
+            raise PermissionError("등록된 확인자/허가권자가 필요합니다")
+
+    def _editable(self, req):
+        p = self.con.execute("SELECT * FROM permits WHERE id=?", (req["permit_id"],)).fetchone()
+        if not p or p["signed_at"] or p["status"] in ("issued", "suspended", "closed"):
+            raise ValueError("미서명 검토 중인 허가에만 증빙을 제출할 수 있습니다")
+        if p["equipment_id"] != req.get("equipment_id") or p["zone_id"] != req.get("zone_id"):
+            raise ValueError("대상 설비·구역이 변경되었습니다. 먼저 재검토하세요")
 
     def _lock(self, point_id, now):
         self.con.execute("UPDATE isolation_points SET locked=1, updated_at=? WHERE id=?", (now, point_id))
@@ -418,11 +449,19 @@ class Pipeline:
                          (req["zone_id"], now, lel, o2, by))
         self.judge.submit_evidence(req["permit_id"], "H-08", now, value={"lel_percent": lel, "o2": o2})
 
-    def submit_loto_check(self, req, method, now, by):
+    def submit_loto_check(self, req, method, now, by, *, stored_energy_released=None, isolation_verified=None):
+        self._editable(req)
+        self._actor(by)
+        if (type(stored_energy_released) is not bool or type(isolation_verified) is not bool
+                or not isinstance(method, str) or not method.strip()):
+            raise ValueError("잔류에너지 제거 결과·차단 검증 결과·확인 방법을 각각 입력하세요")
         self.con.execute("INSERT INTO loto_checks (equipment_id, stored_energy_released, isolation_verified, "
-                         "verify_method, checked_by, checked_at) VALUES (?,1,1,?,?,?)",
-                         (req["equipment_id"], method, by, now))
-        self.judge.submit_evidence(req["permit_id"], "M-04", now, value={"method": method})
+                         "verify_method, checked_by, checked_at) VALUES (?,?,?,?,?,?)",
+                         (req["equipment_id"], int(stored_energy_released), int(isolation_verified), method.strip(), by, now))
+        self.judge.submit_evidence(req["permit_id"], "M-04", now,
+                                   value={"method": method, "stored_energy_released": stored_energy_released,
+                                          "isolation_verified": isolation_verified, "by": by})
+        self.con.commit()
 
     def submit_procedure(self, req, title, now):
         self.con.execute("INSERT OR REPLACE INTO procedures VALUES (?,?,?,?,?,?)",
@@ -435,18 +474,45 @@ class Pipeline:
         self.judge.submit_evidence(req["permit_id"], rule_id, now, value={spec["field"]: spec["value"]})
         return req
 
-    def submit_supplementary_permit(self, req, now):
+    def submit_supplementary_permit(self, req, now, signer_id=None, *, verified=False):
+        self._editable(req)
+        if not req.get("equipment_id"):
+            raise ValueError("정전작업 대상 설비를 먼저 지정하고 재검토하세요")
+        if signer_id:
+            self._actor(signer_id, signer=True)
+            if verified is not True:
+                raise ValueError("보충허가의 정전·차단 안전조치 확인이 필요합니다")
         pid = f"{req['permit_id']}-PW"
-        self.con.execute("INSERT OR REPLACE INTO permits (id, type, requester_id, equipment_id, zone_id, task, start_ts, "
-                         "end_ts, status) VALUES (?,?,?,?,?,?,?,?,'issued')",
-                         (pid, "정전작업", req["requester"], req.get("equipment_id"), req["zone_id"], "정전",
-                          req["start"], req["end"]))
-        self.judge.submit_evidence(req["permit_id"], "H-13", now, value={"permit": pid})
+        old = self.con.execute("SELECT signed_at FROM permits WHERE id=?", (pid,)).fetchone()
+        if old and old[0]:
+            raise ValueError("이미 발급된 보충허가입니다. 변경 시 새로 신청하세요")
+        status = "issued" if signer_id else "draft"
+        self.con.execute("INSERT INTO permits (id, type, requester_id, equipment_id, zone_id, task, start_ts, "
+                         "end_ts, status, signed_by, signed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?) "
+                         "ON CONFLICT(id) DO UPDATE SET start_ts=excluded.start_ts, end_ts=excluded.end_ts, "
+                         "equipment_id=excluded.equipment_id, zone_id=excluded.zone_id, status=excluded.status, "
+                         "signed_by=excluded.signed_by, signed_at=excluded.signed_at",
+                         (pid, "정전작업", req["requester"], req["equipment_id"], req["zone_id"], "정전",
+                          req["start"], req["end"], status, signer_id, now if signer_id else None))
+        self.judge.submit_evidence(req["permit_id"], "H-13", now, value={"permit": pid, "by": signer_id, "verified": verified})
+        self.judge._log(pid, now, "보충허가", None, "H-13", "CC49", status, signer_id)
+        self.con.commit()
+        return status
 
     # ── 6. 문서 ──
     def documents(self, j: Judgment, req, final_status=None, resolutions=None):
         status = final_status or j.status
         resolutions = resolutions or {}
+        stored = self.con.execute("SELECT * FROM permits WHERE id=?", (j.permit_id,)).fetchone()
+        if stored and stored["signed_at"]:
+            req = json.loads(stored["request_json"])
+            status = stored["status"]
+            if not resolutions:
+                resolutions = {row["rule_id"]: {"decision": row["result"], "note": row["detail"] or ""}
+                               for row in self.con.execute("SELECT * FROM audit_log WHERE permit_id=? AND step='서명' "
+                                                            "AND rule_id IS NOT NULL ORDER BY id", (j.permit_id,))}
+        elif final_status == "issued":
+            raise ValueError("미서명 허가를 발급 문서로 생성할 수 없습니다")
 
         def shown(r):
             v = resolutions.get(r.rule_id)
@@ -473,8 +539,9 @@ class Pipeline:
         if extra:
             lines += ["", "## 추가 검토 사항 (설계 등급: 법적 판정 아님)"]
             lines += [f"- [{shown(r)}] {r.name}: {r.reason}" for r in extra]
-        lines += ["", "## 서명", f"- 발급자(신청): {w.get(req['requester'])}",
-                  "- 허가권자: ________ (서명 전까지 효력 없음)"]
+        signature = (f"- 허가권자: {w.get(stored['signed_by'])} (서명 {stored['signed_at'].replace('T', ' ')})"
+                     if stored and stored["signed_at"] else "- 허가권자: ________ (서명 전까지 효력 없음)")
+        lines += ["", "## 서명", f"- 발급자(신청): {w.get(req['requester'])}", signature]
         permit_md = "\n".join(lines)
 
         posting = "\n".join([
@@ -507,13 +574,17 @@ class Pipeline:
     def monitor(self, permit_id, now):
         """발급 후 감시. 정지 사유가 있으면 status='suspended'."""
         from .tools import Tools
-        p = dict(self.con.execute("SELECT * FROM permits WHERE id=?", (permit_id,)).fetchone())
+        row = self.con.execute("SELECT * FROM permits WHERE id=?", (permit_id,)).fetchone()
+        if not row or not row["request_json"]:
+            raise ValueError("감시 가능한 주 작업허가가 아닙니다")
+        p = dict(row)
         req = json.loads(p["request_json"])
+        planning = json.loads(p["planning_json"] or "{}")
         t = Tools(self.con, now)
         alerts = []
         if req["work_type"] == "maintenance" and req.get("equipment_id"):
             s = t.latest_sensor(req["equipment_id"])
-            if s is None or s.get("stale"):
+            if s is None or s.get("stale") or s.get("current_a") is None:
                 last = s["ts"][11:16] if s else "없음"
                 alerts.append({"level": "warn", "text": f"설비 센서 데이터 끊김 (마지막 수신 {last}): 가동 여부를 현장에서 확인",
                                "source": "DP-03 (설계), SP-02"})
@@ -535,10 +606,22 @@ class Pipeline:
                 left = end + timedelta(minutes=req.get("post_work_fire_watch_min") or 30) - datetime.fromisoformat(now)
                 if left.total_seconds() > 0:
                     alerts.append({"level": "info", "text": f"작업 후 화재감시 중: {int(left.total_seconds() // 60)}분 남음", "source": "AG14 7.1(17)"})
+        if planning.get("1", {}).get("answer") == "해당":
+            g = t.latest_gas(req["zone_id"])
+            if g is None or any(g[k] is None for k in ("o2", "co2", "co_ppm", "h2s_ppm")):
+                alerts.append({"level": "warn", "text": "밀폐공간 적정공기 측정값 미확인: 현장 측정 필요", "source": "DP-03 (설계)"})
+            elif not (18 <= g["o2"] < 23.5 and g["co2"] < 1.5 and g["co_ppm"] < 30 and g["h2s_ppm"] < 10):
+                alerts.append({"level": "stop", "text": "밀폐공간 적정공기 기준 이탈: 작업 중단·현장 조치 필요", "source": "SR-618"})
         if any(a["level"] == "stop" for a in alerts) and p["status"] == "issued":
             self.con.execute("UPDATE permits SET status='suspended' WHERE id=?", (permit_id,))
             self.judge._log(permit_id, now, "감시", None, None, None, "suspended", "; ".join(a["text"] for a in alerts))
-            self.con.commit()
+        if datetime.fromisoformat(now) >= datetime.fromisoformat(p["end_ts"]) and p["status"] == "issued":
+            self.con.execute("UPDATE permits SET status='closed' WHERE id=? AND status='issued'", (permit_id,))
+            alerts.append({"level": "info", "text": "허가기간 종료: 새 작업은 재신청 필요", "source": "CC49 5.6"})
+        for call in t.trace:
+            self.judge._log(permit_id, now, "감시조회", call["tool"], None, None, None,
+                            json.dumps(call["args"], ensure_ascii=False))
+        self.con.commit()
         return alerts, t.trace
 
 

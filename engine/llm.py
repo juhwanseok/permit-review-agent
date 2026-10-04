@@ -232,12 +232,16 @@ def plan(client, request, facts):
     schema = {"type": "object", "properties": {k: PLAN_SCHEMA["properties"][k] for k in unknown}, "required": unknown}
     try:
         out = client.chat(PLAN_SYSTEM, user, schema, purpose="14항목 계획(미확정 항목)")
+        proposed = {}
+        for k in unknown:
+            entry = out[k]
+            if entry["answer"] not in ("해당", "비해당", "모름") or not isinstance(entry["reason"], str):
+                raise ValueError("계획 응답 형식 오류")
+            reason = re.sub(r"^(\s*\[[^\]]{1,6}\]\s*)+", "", entry["reason"])
+            proposed[k] = {"answer": entry["answer"], "reason": f"[LLM] {reason}"}
     except LLM_ERRORS:
         return base, "fallback:error"
-    for k in unknown:
-        if k in out:
-            reason = re.sub(r"^(\s*\[[^\]]{1,6}\]\s*)+", "", out[k]["reason"])   # LLM이 붙이는 [데이터] 등 태그 제거
-            base[k] = {"answer": out[k]["answer"], "reason": f"[LLM] {reason}"}
+    base.update(proposed)
     return base, "hybrid"
 
 
@@ -301,9 +305,17 @@ def inconsistencies(client, request, facts):
                 f"이미 탐지된 모순(같은 내용을 다시 적지 말 것): {json.dumps(known, ensure_ascii=False)}")
         try:
             out = client.chat(INCONS_SYSTEM, user, INCONS_SCHEMA, purpose="모순 탐지")
+            if not isinstance(out["findings"], list):
+                raise ValueError("모순 응답 형식 오류")
+            additions = []
+            for f in out["findings"]:
+                if (not isinstance(f, dict) or f.get("severity") not in ("warn", "human_review")
+                        or not all(isinstance(f.get(k), str) and f[k].strip() for k in ("claim", "evidence"))):
+                    raise ValueError("모순 항목 형식 오류")
+                additions.append(dict(f, by="llm"))
         except LLM_ERRORS:
             return found, "fallback:error"
-        found += [dict(f, by="llm") for f in out["findings"]]
+        found += additions
         return found, "llm"
     return found, "fallback"
 

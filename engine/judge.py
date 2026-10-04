@@ -6,7 +6,9 @@
 - DP-03 데이터가 없으면 합격 처리하지 않고 human_review로 보낸다.
 """
 import json
+import hashlib
 import sqlite3
+import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 
@@ -40,6 +42,8 @@ class Judgment:
     results: list
     missing_fields: list
     trace: list
+    review_token: str = ""
+    context: dict = field(default_factory=dict, repr=False)
 
     def by_id(self, rid):
         return next(r for r in self.results if r.rule_id == rid)
@@ -64,14 +68,22 @@ class Judge:
 
     # ── 신청 등록 ──
     def open_permit(self, req):
+        old = self.con.execute("SELECT status, signed_at FROM permits WHERE id=?", (req["permit_id"],)).fetchone()
+        if old and (old["signed_at"] or old["status"] in ("issued", "suspended", "closed")):
+            raise ValueError("이미 확정·중지·종료된 허가입니다. 새 허가번호로 신청하세요")
         ptype = "화기작업" if req["work_type"] == "hot_work" else "일반위험작업"
         self.con.execute(
             "INSERT INTO permits (id, type, requester_id, equipment_id, zone_id, task, start_ts, end_ts, status, "
             "request_text, request_lang, request_json) VALUES (?,?,?,?,?,?,?,?,'reviewing',?,?,?) "
-            "ON CONFLICT(id) DO UPDATE SET request_json=excluded.request_json, status='reviewing'",
+            "ON CONFLICT(id) DO UPDATE SET type=excluded.type, requester_id=excluded.requester_id, "
+            "equipment_id=excluded.equipment_id, zone_id=excluded.zone_id, task=excluded.task, "
+            "start_ts=excluded.start_ts, end_ts=excluded.end_ts, request_text=excluded.request_text, "
+            "request_lang=excluded.request_lang, request_json=excluded.request_json, status='reviewing', "
+            "signed_by=NULL, signed_at=NULL",
             (req["permit_id"], ptype, req["requester"], req.get("equipment_id"), req["zone_id"], req["task"],
              req["start"], req["end"], req.get("request_text"), req.get("request_lang", "ko"),
              json.dumps(req, ensure_ascii=False)))
+        self.con.execute("DELETE FROM permit_workers WHERE permit_id=?", (req["permit_id"],))
         for w in req.get("workers", []):
             self.con.execute("INSERT OR IGNORE INTO permit_workers VALUES (?,?,'작업자')", (req["permit_id"], w))
         if req.get("fire_watch"):
@@ -82,6 +94,10 @@ class Judge:
     def validate_request(self, req):
         """엔진 입구 방어: 참조 무결성·필수 키·시각 형식. 문제가 있으면 ValueError (앱이 DB 오류로 멈추지 않게)."""
         problems = []
+        if req.get("work_type") not in ("maintenance", "hot_work"):
+            problems.append("지원하지 않는 작업 종류 (정비·화기작업만 지원)")
+        if not isinstance(req.get("workers"), list) or not req.get("workers"):
+            problems.append("작업자 명단이 비어 있거나 형식이 잘못됨")
         one = lambda sql, v: self.con.execute(sql, (v,)).fetchone()  # noqa: E731
         for k in ("permit_id", "work_type", "requester", "zone_id", "task", "start", "end"):
             if not req.get(k):
@@ -105,9 +121,12 @@ class Judge:
             raise ValueError("신청 정보 확인 필요: " + "; ".join(problems))
 
     # ── 판정 ──
-    def evaluate(self, req, planning, now, weather=None) -> Judgment:
+    def evaluate(self, req, planning, now, weather=None, persist=True) -> Judgment:
         self.validate_request(req)
-        self.open_permit(req)
+        if persist:
+            self.open_permit(req)
+            self.con.execute("UPDATE permits SET planning_json=? WHERE id=?",
+                             (json.dumps(planning, ensure_ascii=False), req["permit_id"]))
         sp02 = self.rb.params["SP-02"]["value"]["max_age_minutes"]
         tools = Tools(self.con, now, weather=weather, sensor_max_age_min=sp02)
         ctx = Ctx(tools, req, planning)
@@ -135,7 +154,10 @@ class Judge:
         results += self._memory_results(req, tools, results)
         status = self._aggregate(results)
         j = Judgment(req["permit_id"], now, status, results, ctx.missing, tools.trace)
-        self._audit(j)
+        j.context = {"request": json.loads(json.dumps(req)), "planning": json.loads(json.dumps(planning)),
+                     "weather": dict(tools._weather)}
+        if persist:
+            self._audit(j)
         return j
 
     def _planning_results(self, planning):
@@ -210,10 +232,44 @@ class Judge:
 
     # ── 허가권자 서명 (DP-02) ──
     def sign(self, j: Judgment, signer_id, now, resolutions=None):
+        # Serialize finalization with other SQLite writers; roll back only this operation.
+        self.con.execute("SAVEPOINT final_signature")
+        try:
+            self.con.execute("UPDATE permits SET status=status WHERE id=?", (j.permit_id,))
+            result = self._sign(j, signer_id, now, resolutions)
+            self.con.execute("RELEASE final_signature")
+            self.con.commit()
+            return result
+        except Exception:
+            self.con.execute("ROLLBACK TO final_signature")
+            self.con.execute("RELEASE final_signature")
+            raise
+
+    def _sign(self, j: Judgment, signer_id, now, resolutions=None):
         resolutions = resolutions or {}
         signer = self.con.execute("SELECT * FROM workers WHERE id=?", (signer_id,)).fetchone()
         if not signer or not signer["can_sign_permit"]:
             raise PermissionError(f"{signer_id}: 허가 서명 권한 없음")
+        p = self.con.execute("SELECT * FROM permits WHERE id=?", (j.permit_id,)).fetchone()
+        record = self.con.execute("SELECT detail FROM audit_log WHERE permit_id=? AND step='검토확정' "
+                                  "ORDER BY id DESC LIMIT 1", (j.permit_id,)).fetchone()
+        if not p or not record or p["signed_at"] or p["status"] != j.status:
+            raise ValueError("최신 미서명 판정이 아닙니다. 재검토 또는 새 신청이 필요합니다")
+        saved = json.loads(record[0])
+        if (saved["token"] != j.review_token or saved["judgment"] != self._judgment_hash(j)
+                or saved["state"] != self._state_hash()):
+            raise ValueError("검토 후 신청·증빙·현장 상태가 변경되었습니다. 재검증하세요")
+        sign_time = datetime.fromisoformat(now)
+        if sign_time < datetime.fromisoformat(j.now):
+            raise ValueError("서명 시각이 검토 시각보다 이릅니다")
+        if j.status != "rejected" and sign_time >= datetime.fromisoformat(p["end_ts"]):
+            raise ValueError("허가기간이 종료되었습니다. 새로 신청하세요")
+        current = self.evaluate(j.context["request"], j.context["planning"], now,
+                                weather=j.context["weather"], persist=False)
+        previous = {r.rule_id: r.outcome for r in j.results}
+        if any(previous.get(r.rule_id) != r.outcome and self.rb.stronger(r.outcome, previous.get(r.rule_id, "pass"))
+               for r in current.results):
+            raise ValueError("서명 시점의 측정 유효성·판정이 달라졌습니다. 재검증하세요")
         if j.status == "conditional":
             raise ValueError("조건부 항목이 남아 있다. 증빙 제출 후 재판정해야 서명할 수 있다")
         if any(r.rule_id == "PLAN" and r.outcome == "human_review" for r in j.results):
@@ -224,6 +280,11 @@ class Judge:
             pending = [r.rule_id for r in j.results if r.outcome == "human_review" and r.rule_id not in resolutions]
             if pending:
                 raise ValueError(f"사람 판단 항목 미결정: {pending}")
+            allowed = {r.rule_id for r in j.results if r.outcome == "human_review"}
+            for rid, v in resolutions.items():
+                if (rid not in allowed or not isinstance(v, dict) or v.get("decision") not in ("accept", "reject")
+                        or not isinstance(v.get("note"), str) or not v["note"].strip()):
+                    raise ValueError("사람 판단에는 해당 항목의 수용/불수용 결정과 사유가 필요합니다")
             final = "rejected" if any(v["decision"] == "reject" for v in resolutions.values()) else "issued"
         self.con.execute("UPDATE permits SET status=?, signed_by=?, signed_at=? WHERE id=?",
                          (final, signer_id, now, j.permit_id))
@@ -231,7 +292,6 @@ class Judge:
             self._log(j.permit_id, now, "서명", None, rid, None, v["decision"], v.get("note"))
         self._log(j.permit_id, now, "서명", None, None, None, final, signer_id)
         self._remember(j, now)
-        self.con.commit()
         return final
 
     def _remember(self, j, now):
@@ -264,7 +324,24 @@ class Judge:
             self._log(j.permit_id, j.now, "추론" if r.origin == "llm" else "판정", None, r.rule_id, r.source_id,
                       r.outcome, json.dumps(r.facts, ensure_ascii=False, default=str) if r.facts else r.reason)
         self.con.execute("UPDATE permits SET status=? WHERE id=?", (j.status, j.permit_id))
+        j.review_token = uuid.uuid4().hex
+        self._log(j.permit_id, j.now, "검토확정", None, None, None, j.status,
+                  json.dumps({"token": j.review_token, "judgment": self._judgment_hash(j),
+                              "state": self._state_hash()}, ensure_ascii=False))
         self.con.commit()
+
+    @staticmethod
+    def _judgment_hash(j):
+        value = asdict(j)
+        value.pop("review_token", None)
+        return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False, default=str).encode()).hexdigest()
+
+    def _state_hash(self):
+        # This single-user demo conservatively invalidates review after any relevant DB change.
+        names = ("site", "zones", "equipment", "isolation_points", "loto_checks", "procedures", "workers",
+                 "trainings", "sensor_readings", "gas_readings", "permits", "permit_workers", "evidence", "equipment_events")
+        value = {n: [dict(r) for r in self.con.execute(f'SELECT * FROM "{n}" ORDER BY rowid')] for n in names}
+        return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
 def to_dict(j: Judgment):

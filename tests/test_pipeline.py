@@ -105,7 +105,8 @@ def test_s2_photo_without_vlm_needs_human_confirm_then_passes():
     pl.confirm_photo(res["evidence_id"], "P-03-E", True, f"{D}T13:12", "W002")
     j, _ = pl.review(req, sc.S2["planning"], f"{D}T13:12")
     assert j.by_id("M-02b").outcome == "pass" and j.by_id("M-04").outcome == "conditional"   # 잠금 후 재확인 필요
-    pl.submit_loto_check(req, "잠금 후 시동 시도 → 무반응", f"{D}T13:14", "W001")
+    pl.submit_loto_check(req, "잠금 후 시동 시도 → 무반응", f"{D}T13:14", "W001",
+                         stored_energy_released=True, isolation_verified=True)
     j, _ = pl.review(req, sc.S2["planning"], f"{D}T13:15")
     assert j.by_id("M-04").outcome == "pass" and j.status == "human_review"
 

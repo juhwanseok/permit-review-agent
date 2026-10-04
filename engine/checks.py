@@ -368,7 +368,9 @@ def h13(ctx):
     if ctx.plan_item(2) != "해당":
         return Check(False)
     ps = ctx.t.permits_overlapping(ctx.req["start"], ctx.req["end"], ctx.req.get("permit_id"))
-    ok = any(p["type"] == "정전작업" and p["equipment_id"] == ctx.req.get("equipment_id") for p in ps)
+    ok = any(p["type"] == "정전작업" and p["status"] == "issued" and p["signed_by"] and p["signed_at"]
+             and ctx.req.get("equipment_id") and p["equipment_id"] == ctx.req["equipment_id"]
+             and p["start_ts"] <= ctx.req["start"] and p["end_ts"] >= ctx.req["end"] for p in ps)
     return Check(True, ok)
 
 

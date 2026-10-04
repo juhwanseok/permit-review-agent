@@ -48,6 +48,37 @@ def test_s2_flow_through_gui():
     assert not at.exception, at.exception
     assert at.session_state["j"].status == "conditional"
     assert at.session_state["j"].by_id("M-02b").outcome == "conditional"
+    return at
+
+
+def test_s2_evidence_signature_and_monitor_through_gui():
+    at = test_s2_flow_through_gui()
+    click(at, "사진 제출·판독")
+    assert not at.exception, at.exception
+    click(at, "허가권자: 사진상 잠금 확인")
+    click(at, "🔁 재검증 (처음부터 다시 조회)")
+    assert not at.exception, at.exception
+    next(r for r in at.radio if r.label == "잔류에너지 제거 결과").set_value("완료")
+    next(r for r in at.radio if r.label == "차단 검증 결과").set_value("성공")
+    click(at, "차단 확인 기록")
+    click(at, "🔁 재검증 (처음부터 다시 조회)")
+    assert at.session_state["j"].status == "human_review"
+    click(at, "③ 서명 단계로")
+    for r in at.radio:
+        if r.label == "결정":
+            r.set_value("수용(허가)")
+    for t in at.text_input:
+        if t.label == "메모":
+            t.set_value("금형 교체와 함께 진동 원인을 현장에서 점검")
+    click(at, "✍ 서명 (허가서 발행)")
+    assert not at.exception, at.exception
+    assert at.session_state["final"] == "issued"
+    click(at, "④ 작업 감시로")
+    click(at, "설비 가동 감지 (전류 18A)")
+    click(at, "감시 실행")
+    assert not at.exception, at.exception
+    con = at.session_state["con"]
+    assert con.execute("SELECT status FROM permits WHERE id=?", (at.session_state["j"].permit_id,)).fetchone()[0] == "suspended"
 
 
 if __name__ == "__main__":
@@ -57,7 +88,9 @@ if __name__ == "__main__":
         shutil.copy(db, backup)
     try:
         test_s2_flow_through_gui()
-        print("ok test_s2_flow_through_gui\n1개 통과")
+        print("ok test_s2_flow_through_gui")
+        test_s2_evidence_signature_and_monitor_through_gui()
+        print("ok test_s2_evidence_signature_and_monitor_through_gui\n2개 통과")
     finally:
         if backup.exists():
             shutil.copy(backup, db)

@@ -1,79 +1,90 @@
-# 작업허가 검토 에이전트 (Permit Review Agent)
+# AI 안전작업허가 검토관
 
-제4회 경남 AI·SW 경진대회 · 대학부 지정과제 3-3 (국립창원대 앵커사업단) 출품작. 개발 기간 2026-09-29 ~ 10-06.
+정비작업·화기작업 허가 신청을 법령·KOSHA GUIDE 근거로 검토하는 로컬 LLM 에이전트입니다.
+역할 분담은 **"LLM은 계획·해석, 규칙은 판정, 사람은 서명"**입니다.
 
-> **한계와 법적 근거가 없는 값은 [LIMITATIONS.md](LIMITATIONS.md)에 모았다.** 보고서와 별지2에 한계를 적을 때 이 문서를 원본으로 쓴다.
+- 제4회 경남 AI·SW 경진대회 · 대학부 지정과제 3-3 (국립창원대 앵커사업단) 출품작
+- 개발 기간: 2026-09-29 ~ 10-06
+- **한계와 법적 근거가 없는 값은 [LIMITATIONS.md](LIMITATIONS.md)에 ID별로 정리했습니다.**
 
-## GUI 실행
+## 빠른 실행
+
+필요한 것: Python 3.11 이상(개발·검증은 3.14.6에서 함). LLM을 쓰려면 Ollama와 `gemma4:31b` 모델(24GB급 GPU)이 필요합니다.
+LLM이 없어도 규칙 기반 폴백 모드로 끝까지 동작합니다.
+
+```bash
+python -m venv .venv
+# Windows: .venv\Scripts\activate    macOS·Linux: source .venv/bin/activate
+pip install -r requirements.txt
+streamlit run app.py                 # http://localhost:8501
 ```
-.venv/Scripts/streamlit run app.py          # http://localhost:8501
+
+선택: 로컬 LLM 연결
+
+```bash
+ollama pull gemma4:31b               # Ollama가 실행 중이면 앱 사이드바에 "연결됨"으로 표시
 ```
-- 로컬 LLM: Ollama + `gemma4:31b` (24GB급 GPU 필요, L-C07). 연결되지 않으면 사이드바에 폴백 모드로 표시되고, 판정 엔진은 그대로 동작한다.
-- 사이드바의 **S1·S2·S3** 버튼으로 시연 시나리오를 불러온다. 데모 시계·체감온도·특보는 수동 입력이다(L-D03).
+
+- 데모 DB(`data/permit_demo.db`)는 앱을 처음 실행할 때 자동으로 만들어집니다.
+- 사이드바의 **S1·S2·S3** 버튼으로 시연 시나리오를 불러옵니다. 데모 시계·체감온도·기상특보는 사이드바에서 직접 입력합니다(L-D03).
 - 흐름: ① 신청(구조화 → 되묻기 → 14항목) → ② 검토·조치(판정·모순·대안·증빙·재검증) → ③ 서명·발행(허가서·게시문·다국어 안내) → ④ 작업 감시(이벤트 주입 → 정지) → ⑤ 기록 → ⑥ 규칙·한계
-- 앱이 시작되면 백그라운드에서 모델을 미리 로드한다(워밍업). 로드 전 첫 호출은 약 17초, 로드 후 짧은 호출은 약 2.7초다.
+- 앱이 시작되면 백그라운드에서 모델을 미리 로드합니다. 로드 전 첫 호출은 약 17초, 로드 후 짧은 호출은 약 2.7초입니다.
 
-정비작업·화기작업 허가 신청을 검토하는 AI 에이전트입니다. 역할 분담은 "LLM은 계획·해석, 규칙은 판정, 사람은 서명"입니다.
+## 테스트와 평가
 
-## 구성
-| 경로 | 내용 |
-|---|---|
-| `rules/permit_rules.yaml` | 판정 규칙 31개. 출처 21개(법령·고시·KOSHA GUIDE·행정지침). **이 파일이 정본** |
-| `rules/validate_rules.py` | 규칙 파일 무결성 검사. 출처 누락, 등급 상한 초과, 조항 오기를 잡음 |
-| `data/schema.sql` | 데모 DB 스키마(SQLite, 테이블 15개 + 뷰 1개) |
-| `data/seed.py` | 가상 사업장 '가온정밀'의 하루치 상태를 생성 (`--date`로 기준일 지정) |
-| `tests/test_validate_rules.py` | 검사기 음성 테스트 8개 |
-| `tests/test_seed.py` | 시드 DB가 시나리오 S1~S3 전제를 담고 있는지 검사하는 테스트 14개 |
-| `engine/tools.py` | 상태 조회 도구. 호출마다 실행 로그에 기록. 현장 연동 시 이 파일만 교체 |
-| `engine/checks.py` | 규칙 31개의 판정 함수 (YAML의 expr을 구현, 규칙 ID와 1:1 대응) |
-| `engine/judge.py` | 판정 → 집계 → LLM 강화 조정 제한 → 증빙 재검증 → 허가권자 서명 → 감사 로그·기억 |
-| `engine/scenarios.py` | S1~S3 입력 (LLM이 만들 구조화 결과·14항목 계획을 정답 형태로 고정) |
-| `engine/demo.py` | 시나리오 실행 로그 출력 |
-| `tests/test_engine.py` | 엔진 테스트 23개 (시나리오 3건 + 변형 + DP-01~03) |
-| `engine/llm.py` | Gemma 4 연동: 구조화, 14항목(하이브리드), 모순 탐지, 번역, 사진 판독. 폴백 포함 |
-| `engine/pipeline.py` | 전체 흐름: 되묻기, 증빙 처리기 14종, 대안, 문서(허가서·게시문·안내), 작업 감시 |
-| `app.py` | Streamlit GUI (6단계) |
-| `assets/make_samples.py` | 합성 증빙 사진 생성 (L-D05) |
-| `tests/test_pipeline.py` | 파이프라인 테스트 10개 (LLM 없이 폴백 모드) |
-| `tests/test_hardening.py` | 견고성 테스트 16개 (재현한 버그 A1~A9·B1~B3, 작업자 명단, 키워드 교차 확인) |
-| `tests/test_app.py` | GUI 스모크 테스트 1개 (Streamlit AppTest로 S2 조작) |
-| `tests/eval_cases.py`, `tests/run_eval.py` | 정확도 평가셋(개발 24건 + 보류 10건)과 실행기 |
-| `tests/eval_out/` | 평가 결과. `gemma_holdout_first`가 보류셋 첫 실행(수정 전) 결과다 |
-| `tests/llm_smoke.py` | Gemma 4 실모델 점검 (수동 실행, 느림) |
-| `LIMITATIONS.md` | 한계·법적 근거 없는 값 목록 (L-A/B/C/D/S/P) |
-
-## 실행
-```
-python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
-python data/seed.py --date 2026-10-05
-python -m engine.demo all            # S1·S2·S3 실행 로그
-python tests/test_engine.py
-python rules/validate_rules.py
+```bash
+python -m engine.demo all            # S1·S2·S3 실행 로그 (LLM 없이)
+python rules/validate_rules.py       # 규칙 파일 무결성 검사
 python tests/test_validate_rules.py
 python tests/test_seed.py
+python tests/test_engine.py
 python tests/test_pipeline.py
 python tests/test_hardening.py
 python tests/test_app.py
 
-# 정확도 평가 (llm은 Ollama gemma4:31b 필요)
+# 정확도 평가 (llm 모드는 Ollama gemma4:31b 필요)
 python tests/run_eval.py fallback tests/eval_out/fallback_dev dev
-python tests/run_eval.py llm tests/eval_out/gemma_holdout holdout
+python tests/run_eval.py llm tests/eval_out/gemma_holdout_rerun holdout
 ```
 
-## 평가 결과 요약
 | | Gemma 4 보류 10건 (첫 실행) | Gemma 4 34건 (수정 후) | 폴백(규칙만) 34건 |
 |---|---|---|---|
 | 구조화 필드 정확도 | 96.6% (170/176) | 99.5% (595/598) | 85.6% (512/598) |
 | 최종 판정 일치 | 7/10 | 34/34 | 34/34 |
 | **오승인** | **0** | **0** | **0** |
 
-- 정답 판정은 사람이 확정한 입력으로 규칙 엔진을 돌린 결과다. 즉 **규칙 엔진이 옳다는 전제의 일치율**이다.
-- 수정 후 수치는 평가셋을 보고 고친 결과이므로 일반화 성능으로 보지 않는다. 한계는 LIMITATIONS.md L-C12.
+- 평가셋은 한국어·베트남어·영어, 모호한 표현, 거짓 기재, 프롬프트 주입을 포함합니다.
+- 보류셋 첫 실행의 불일치 3건 중 2건은 정답보다 엄격했고, 1건(H04)은 반려를 조건부로 냈습니다. 조건부는 서명이 막히므로 허가가 나가지는 않습니다.
+- 정답 판정은 사람이 확정한 입력으로 규칙 엔진을 돌린 결과입니다. 즉 **규칙 엔진이 옳다는 전제의 일치율**입니다.
+- 수정 후 수치는 평가셋을 보고 고친 결과이므로 일반화 성능으로 보지 않습니다(L-C12).
+- 결과 파일: `tests/eval_out/` — `gemma_holdout_first`(보류셋 첫 실행), `gemma_holdout_fixed`, `gemma_dev`, `fallback_dev`, `fallback_holdout`
 
-## 데이터 출처 구분 (보고서·별지2에 그대로 옮길 것)
+## 구성
+
+| 경로 | 내용 |
+|---|---|
+| `rules/permit_rules.yaml` | 판정 규칙 31개, 출처 21개(법령·고시·KOSHA GUIDE·행정지침). **이 파일이 정본** |
+| `rules/validate_rules.py` | 규칙 파일 무결성 검사. 출처 누락, 등급 상한 초과, 조항 오기를 잡음 |
+| `data/schema.sql` | 데모 DB 스키마(SQLite, 테이블 15개 + 뷰 1개) |
+| `data/seed.py` | 가상 사업장 '가온정밀'의 하루치 상태 생성 (`--date`로 기준일 지정) |
+| `engine/tools.py` | 상태 조회 도구 15종. 호출마다 실행 로그에 기록. 현장 연동 시 이 파일만 교체 |
+| `engine/checks.py` | 규칙 31개의 판정 함수 (YAML의 expr을 구현, 규칙 ID와 1:1 대응) |
+| `engine/judge.py` | 판정 → 집계 → LLM 강화 조정 제한 → 증빙 재검증 → 허가권자 서명 → 감사 로그·기억 |
+| `engine/llm.py` | Gemma 4 연동: 구조화, 14항목(하이브리드), 모순 탐지, 번역, 사진 판독. 폴백 포함 |
+| `engine/pipeline.py` | 전체 흐름: 되묻기(한·베·영 템플릿), 증빙 처리기 14종, 대안, 문서(허가서·게시문·안내), 작업 감시 |
+| `engine/scenarios.py`, `engine/demo.py` | 시연 시나리오 S1~S3 입력과 실행 로그 출력 |
+| `app.py` | Streamlit GUI (6단계) |
+| `assets/make_samples.py` | 합성 증빙 사진 생성 (L-D05) |
+| `tests/test_*.py` | 결정적 테스트 76개: 규칙 검사 8, 시드 14, 엔진 23, 파이프라인 10, 견고성 20, GUI 1 |
+| `tests/eval_cases.py`, `tests/run_eval.py` | 정확도 평가셋(개발 24건 + 보류 10건)과 실행기 |
+| `tests/llm_smoke.py` | Gemma 4 실모델 점검 (수동 실행, 느림) |
+| `LIMITATIONS.md` | 한계·법적 근거 없는 값 목록 (L-A/B/C/D/S/P) |
+
+## 데이터 출처 구분
 - **가상:** 사업장, 구역 배치도, 설비 마스터, LOTO 상태, 절차서, 작업자, 교육 이력, 가스 측정, 당일 허가
-- **합성 → 교체 예정:** 센서값(`sensor_readings.data_source='synthetic'`). KAMP나 AI4I 실제 기록 재생으로 교체
-- **실제 API:** 기상청 단기예보 (엔진 구현 시 연결)
+- **합성:** 센서값(`sensor_readings.data_source='synthetic'`), 증빙 사진(`assets/samples/`)
+- **수동 입력:** 기상(체감온도·특보). 기상청 API는 연동하지 않았습니다(L-D03).
+- **공개 자료:** 산업안전보건기준에 관한 규칙, 시행규칙 별표 5, KOSHA GUIDE, 고용노동부 폭염 대응지침. 원문 사본은 저장소에 넣지 않았고 출처 목록은 `rules/permit_rules.yaml`의 `sources`에 있습니다.
 
 ## 시드 상태 요약 (시나리오 대응)
 | 시나리오 | 준비된 상태 |
@@ -83,17 +94,16 @@ python tests/run_eval.py llm tests/eval_out/gemma_holdout holdout
 | S3 2라인 용접 → 반려 | W-2에서 7m 거리에 도장 부스(도료·신너). 13~17시 도장 허가 발급됨. Tan 38호 **미이수**. 대안 인력 최용접 38호 이수. W-2 LEL 3% |
 | 변형용 | W1 용접 전용 부스(H-01 예외 조건 충족), YD 옥외(폭염·악천후) |
 
-## 스키마 결정 메모
-- **진동 경계값은 설비별 컬럼으로 두었다.** 입력 범위는 B-M-37-2026 6.2(6)으로 CHECK 제약을 걸었다. 값은 ISO 20816-3 Group 2 유연지지(2.3/4.5/7.1)이다.
-- **H-01 단서(상시·반복 용접 + 경보·소화설비)는 구역 단위로 둔다.** 조문 문구가 "같은 장소에서"이기 때문이다. 그래서 규칙 expr을 `site.*`에서 `zone.*`으로 바꿨다.
-- **동력 프레스 대수는 `site_stats` 뷰로 계산한다.** 설비 테이블과 값이 어긋나지 않게 하려는 것이다.
-- **`permits.request_json`에는 LLM이 구조화한 신청 필드를 저장한다.** 예: fire_watch_assigned, safety_block_used.
+## 설계 메모
+- **판정:** 비적용이면 `n/a`, 데이터가 없으면 `human_review`(DP-03), 통과면 `pass`, 불통과면 YAML의 `on_fail`.
+- **집계:** 가장 강한 결과를 따릅니다. reject → 반려, conditional → 조건부, human_review → 사람 판단, 나머지 → 승인(서명 대기).
+- **근거 등급별 상한:** 법정·고시만 반려할 수 있고, KOSHA 권고·행정지침은 조건부까지, 해외 기준은 경고, 설계값은 사람 판단까지입니다(L-A01).
+- **LLM 조정:** 강화만 가능하고 상한은 사람 판단입니다(DP-01). 완화나 반려를 시도하면 예외가 발생합니다.
+- **서명 조건:** 조건부 항목이나 14항목 '모름'이 남아 있으면 서명할 수 없고, 사람 판단 항목은 모두 결정해야 합니다. 서명 권한은 `can_sign_permit`이 있는 사람만 가집니다(DP-02). 반려 건의 서명은 반려 확정입니다.
+- **신청자 모순:** "가연물 없음"·"설비 정지함" 같은 신청값은 도구 조회 결과와 대조해 사람 판단으로 올립니다(규칙 탐지 + LLM 탐지, L-B14·L-C03).
+- **기억:** 진동 C/D 영역 이력은 서명할 때 한 번만 기록하고, 30일 안에 2회 이상이면 진동 원인 점검을 계획에 넣으라고 경고합니다(SP-01).
+- **스키마:** 진동 경계값은 설비별 컬럼(입력 범위는 B-M-37-2026 6.2(6) CHECK 제약), H-01 단서는 구역 단위, 동력 프레스 대수는 `site_stats` 뷰로 계산합니다.
 
-## 판정 엔진 결정 메모
-- **판정 규칙:** 비적용이면 `n/a`, 데이터가 없으면 `human_review`(DP-03), 통과면 `pass`, 불통과면 YAML의 `on_fail`.
-- **집계:** 가장 강한 결과를 따른다. reject → 반려, conditional → 조건부, human_review → 사람 판단, 나머지 → 승인(서명 대기).
-- **LLM 조정:** 강화만 가능하고 상한은 human_review다(설계 등급). 완화나 반려를 시도하면 예외가 발생한다.
-- **서명 조건:** 조건부 항목이 남아 있으면 서명할 수 없다. 사람 판단 항목은 전부 결정해야 서명할 수 있다. 서명 권한은 `can_sign_permit`이 있는 사람만 가진다.
-- **기억 기록 시점:** 진동 C/D 영역 이력은 서명할 때 한 번만 쓴다. 재판정할 때마다 쓰면 중복으로 쌓이기 때문이다.
-- **신청 필드 처리:** 필드가 빠져 있으면 `missing_fields`에 모은다. 이 목록이 LLM 되묻기의 입력이 된다. 필드가 있지만 값이 null이면 '없음'으로 판정한다(예: 화재감시자 미지정 → 반려).
-- **아직 못 잡는 것:** 신청자가 사실과 다르게 적은 값(예: S3 "가연물 없음", 가연물 격리 완료)은 H-06처럼 신청값을 믿고 통과시킨다. 이런 모순은 LLM 추론 단계가 도구 결과와 대조해 human_review로 올려야 한다.
+## 라이선스와 사용한 외부 자산
+- 이 저장소의 코드와 문서의 저작권은 참가팀(국립창원대학교 신호처리연구실)에 있습니다.
+- 사용한 외부 자산(수정 없이 사용): Gemma 4 모델(Apache-2.0), Ollama(MIT), Streamlit(Apache-2.0), pandas(BSD-3-Clause), PyYAML(MIT), Pillow(MIT-CMU)

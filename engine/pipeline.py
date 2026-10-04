@@ -13,7 +13,7 @@ from .checks import DIE_INSTALL_TASKS, DIE_TASKS
 from .judge import Judge, Judgment
 
 # ─────────────────────────────────────────────
-# 되묻기: 필드별 질문 (한국어·베트남어 템플릿, 그 외 언어는 LLM 번역)
+# 되묻기: 필드별 질문 (한국어·베트남어·영어 템플릿. 질문 문구는 LLM이 만들지 않는다)
 # ─────────────────────────────────────────────
 FIELD_SPECS = {
     "equipment_id": {"type": "equipment", "ko": "작업 대상 설비는 무엇입니까?", "vi": "Bạn sẽ làm việc trên thiết bị nào?"},
@@ -43,7 +43,35 @@ FIELD_SPECS = {
     "crew": {"type": "crew", "ko": "신청자 외에 함께 작업하는 사람을 모두 선택하세요 (없으면 비워 두세요).",
              "vi": "Chọn tất cả những người cùng làm việc ngoài bạn (nếu không có, để trống)."},
 }
+FIELD_EN = {
+    "equipment_id": "Which equipment will you work on?",
+    "zone_id": "Where is the work area (zone)?",
+    "start_hhmm": "Work start time?",
+    "end_hhmm": "Work end time?",
+    "body_in_danger_zone": "Will your hands or body enter the danger zone (e.g. under the press slide)?",
+    "safety_block_used": "Will you use a safety block?",
+    "die_precheck_completed": "How many of the 6 pre-installation die checks are done?",
+    "fire_watch": "Who is the fire watch? (choose 'None' if nobody)",
+    "extinguisher_placed": "Is a fire extinguisher placed at the work site?",
+    "spark_barrier": "What spark protection will you use?",
+    "ventilation_done": "Has the area been ventilated so no flammable gas remains?",
+    "excess_combustibles_removed": "Have combustibles not needed for the work been removed?",
+    "post_work_fire_watch_min": "How many minutes of fire watch after the work?",
+    "gas_remeasure_plan_4h": "Will gas concentration be re-measured every 4 hours?",
+    "crew": "Select everyone working with you (leave empty if nobody).",
+}
+for _k, _v in FIELD_EN.items():
+    FIELD_SPECS[_k]["en"] = _v
 FIELD_LABEL_KO = {k: v["ko"] for k, v in FIELD_SPECS.items()}
+
+# 허가는 작업 당일에만 신청·발급한다(C-C-49 5.6). 다른 날 작업을 오늘 날짜로 잘못 처리하지 않도록 막는다.
+OTHER_DAY = re.compile(r"내일|모레|다음\s*주|다음\s*날|익일|tomorrow|next\s+week|ngày\s*mai|ngày\s*kia|tuần\s*sau", re.I)
+NO_EQUIPMENT = "없음"
+OUT_OF_SCOPE = {
+    "other_day": "허가는 작업 당일에만 신청·발급합니다(KOSHA C-C-49 5.6). 다른 날 작업은 그날 다시 신청하세요.",
+    "no_equipment": "대상 설비가 없는 작업은 정비작업 허가(기준규칙 제92조 등) 대상이 아닙니다. "
+                    "용접·용단 등 화기작업이면 신청 내용에 작업 종류를 적어 다시 신청하세요.",
+}
 STATUS_KO = {"approved": "승인(서명 대기)", "conditional": "조건부 승인", "human_review": "사람 판단 필요",
              "rejected": "반려", "issued": "발행", "suspended": "작업 정지", "closed": "종료"}
 OUTCOME_KO = {"pass": "통과", "reject": "반려", "conditional": "조건부", "human_review": "사람 판단", "warn": "경고",
@@ -209,6 +237,8 @@ class Pipeline:
             req["fire_watch"] = fw
         req["_date"] = date_str
         req["_notes"] = notes
+        if OTHER_DAY.search(text or ""):
+            req["_out_of_scope"] = OUT_OF_SCOPE["other_day"]
         return self.finalize_times(req)
 
     @staticmethod
@@ -227,6 +257,8 @@ class Pipeline:
     def pending_questions(self, req):
         lang = req.get("request_lang", "ko")
         out = []
+        if req.get("_out_of_scope"):
+            return out
         for f in required_fields(req):
             if f == "fire_watch":
                 missing = "fire_watch" not in req
@@ -245,6 +277,9 @@ class Pipeline:
     def answer(self, req, field_name, value):
         if field_name == "fire_watch":
             req["fire_watch"] = None if value in (None, "없음") else value
+        elif field_name == "equipment_id" and value == NO_EQUIPMENT:
+            req["equipment_id"] = None
+            req["_out_of_scope"] = OUT_OF_SCOPE["no_equipment"]
         elif field_name == "crew":
             valid = {r[0] for r in self.con.execute("SELECT id FROM workers")}
             extra = [w for w in dict.fromkeys(value or []) if w in valid and w != req["requester"]]
@@ -282,6 +317,8 @@ class Pipeline:
 
     # ── 4. 판정 + 모순 강화 + 대안 ──
     def review(self, req, planning, now, weather=None):
+        if req.get("_out_of_scope"):
+            raise ValueError(req["_out_of_scope"])
         j = self.judge.evaluate(_public(req), planning, now, weather=weather)
         findings, imode = L.inconsistencies(self.client, _public(req), self.facts(req, now))
         adj = [{"name": f"신청 기재 모순: {f['claim']}", "outcome": f["severity"], "origin": f.get("by", "llm"),
@@ -295,20 +332,28 @@ class Pipeline:
         out = []
         ids = {r.rule_id: r for r in j.active()}
         q = lambda s, *a: [dict(r) for r in self.con.execute(s, a).fetchall()]  # noqa: E731
+        busy = {r["worker_id"] for r in q(
+            "SELECT pw.worker_id FROM permit_workers pw JOIN permits p ON p.id = pw.permit_id "
+            "WHERE p.status IN ('issued','approved') AND p.start_ts < ? AND p.end_ts > ? AND p.id != ?",
+            req["end"], req["start"], req["permit_id"])}
+        crew = set(req.get("workers", []))
+        names = {w["id"]: w["name"] for w in q("SELECT id, name FROM workers")}
         if "H-01" in ids:
-            busy = {r["worker_id"] for r in q(
-                "SELECT pw.worker_id FROM permit_workers pw JOIN permits p ON p.id = pw.permit_id "
-                "WHERE p.status IN ('issued','approved') AND p.start_ts < ? AND p.end_ts > ? AND p.id != ?",
-                req["end"], req["start"], req["permit_id"])}
             cands = [w for w in q("SELECT id, name, role, can_sign_permit FROM workers")
-                     if w["id"] not in req.get("workers", []) and w["id"] not in busy and not w["can_sign_permit"]]
+                     if w["id"] not in crew and w["id"] not in busy and not w["can_sign_permit"]]
             txt = ", ".join(f"{w['name']}({w['role']})" for w in cands) or "가용 인원 없음"
             out.append({"rule": "H-01", "text": f"화재감시자 지정: {txt}  (같은 시간 다른 허가 작업자·허가권자 제외)"})
         for rid, code in (("H-11", "B5-38"), ("M-08", "B5-11")):
             if rid in ids:
-                ws = q("SELECT w.id, w.name FROM workers w JOIN trainings t ON t.worker_id=w.id WHERE t.code=?", code)
-                txt = ", ".join(w["name"] for w in ws) or "없음"
-                out.append({"rule": rid, "text": f"별표 5 {code[3:]}호 이수자로 교체 ({txt}) 또는 특별교육 이수 후 재신청"})
+                lacking = ids[rid].facts.get("lacking", [])
+                who = ", ".join(names.get(w, w) for w in lacking) or "미이수자"
+                ws = [w for w in q("SELECT w.id, w.name FROM workers w JOIN trainings t ON t.worker_id=w.id "
+                                   "WHERE t.code=?", code) if w["id"] not in crew and w["id"] not in busy]
+                if ws:
+                    txt = f"별표 5 {code[3:]}호 이수자로 교체 ({', '.join(w['name'] for w in ws)})"
+                else:
+                    txt = f"교체할 별표 5 {code[3:]}호 이수자 없음(이미 작업 중이거나 같은 시간 다른 허가)"
+                out.append({"rule": rid, "text": f"미이수자 {who}: {txt}. 또는 작업에서 빼거나 특별교육 이수 후 재신청"})
         if "X-01" in ids:
             clash = ids["X-01"].facts.get("clash", [])
             if clash:

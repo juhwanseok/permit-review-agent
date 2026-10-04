@@ -221,6 +221,46 @@ def test_crosscheck_fixes_observed_llm_errors():
     assert r["task"] == "금형교체"
 
 
+# ── 2026-10-04 실사용 점검에서 찾은 문제 ──
+def test_training_alternative_names_lacking_and_excludes_crew():
+    """대안이 이미 작업 중인 신청자를 '교체 후보'로 내지 않고, 미이수자를 밝혀야 한다."""
+    pl = fresh()
+    req = pl.to_request(raw(start_hhmm="11:00", end_hhmm="12:00"), "W001", "5호기 점검", "ko", D, "PA")
+    pl.answer(req, "crew", ["W004"])
+    j, extra = pl.review(req, sc.S1["planning"], f"{D}T10:50")
+    alt = next(a["text"] for a in extra["alternatives"] if a["rule"] == "M-08")
+    assert "이도장" in alt and "김정비" not in alt and "이수자 없음" in alt
+
+
+def test_other_day_request_is_out_of_scope():
+    """'내일' 작업을 오늘 허가로 처리하지 않는다 (허가는 당일 한정, C-C-49 5.6)."""
+    pl = fresh()
+    for text in ("내일 오전 9시부터 12시까지 1호기 수리합니다.", "Ngày mai sửa máy 1", "Fix press 1 tomorrow"):
+        req = pl.to_request(raw(equipment_id="P-01", task="수리"), "W001", text, "ko", D, "PD")
+        assert req.get("_out_of_scope") and pl.pending_questions(req) == []
+        expect_raises(ValueError, lambda: pl.review(req, sc.S1["planning"], f"{D}T10:30"))
+    req = pl.to_request(raw(), "W001", "5호기 점검 10:30~11:30", "ko", D, "PD2")
+    assert not req.get("_out_of_scope")
+
+
+def test_maintenance_without_equipment_can_answer_none():
+    """설비가 없는 정비는 질문에서 '설비 없음'을 고를 수 있고, 허가 대상 아님으로 안내한다."""
+    from engine.pipeline import NO_EQUIPMENT
+    pl = fresh()
+    req = pl.to_request(raw(equipment_id=None, zone_id="MS", task="청소"), "W001", "자재창고 선반 정리", "ko", D, "PE")
+    assert "equipment_id" in [q["field"] for q in pl.pending_questions(req)]
+    pl.answer(req, "equipment_id", NO_EQUIPMENT)
+    assert pl.pending_questions(req) == [] and "대상이 아닙니다" in req["_out_of_scope"]
+    expect_raises(ValueError, lambda: pl.review(req, sc.S1["planning"], f"{D}T10:30"))
+
+
+def test_questions_in_english():
+    pl = fresh()
+    req = pl.to_request(raw(start_hhmm=None, end_hhmm=None), "W001", "Inspect press 5", "en", D, "PF")
+    qs = {q["field"]: q["question"] for q in pl.pending_questions(req)}
+    assert qs["start_hhmm"] == "Work start time?" and qs["crew"].startswith("Select")
+
+
 if __name__ == "__main__":
     fns = [v for k, v in dict(globals()).items() if k.startswith("test_")]
     for f in fns:

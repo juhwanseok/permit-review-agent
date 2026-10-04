@@ -1,4 +1,4 @@
-"""작업허가 검토 에이전트 GUI.  실행: .venv/Scripts/streamlit run app.py
+"""AI 안전작업허가 검토관 GUI.  실행: streamlit run app.py
 
 흐름: ① 신청(구조화·되묻기·14항목 계획) → ② 검토·조치(판정·모순·대안·증빙·재검증) → ③ 서명·발행 → ④ 작업 감시
 """
@@ -18,6 +18,7 @@ sys.path.insert(0, str(ROOT / "data"))
 import seed  # noqa: E402
 
 from engine import llm as L  # noqa: E402
+from engine import pipeline as P  # noqa: E402
 from engine import scenarios as sc  # noqa: E402
 from engine.pipeline import FIELD_LABEL_KO, Pipeline  # noqa: E402
 from engine.rules import RuleBook  # noqa: E402
@@ -34,7 +35,7 @@ STATUS_UI = {"approved": ("success", "승인: 허가권자 서명 대기"), "con
              "issued": ("success", "허가서 발행"), "suspended": ("error", "작업 정지")}
 LANGS = {"ko": "한국어", "vi": "Tiếng Việt", "en": "English", "ne": "नेपाली", "km": "ខ្មែរ", "id": "Bahasa Indonesia"}
 
-st.set_page_config(page_title="작업허가 검토 에이전트", page_icon="🦺", layout="wide")
+st.set_page_config(page_title="AI 안전작업허가 검토관", page_icon="🦺", layout="wide")
 
 
 def md(text):
@@ -139,7 +140,7 @@ def go(page):
 # 사이드바
 # ─────────────────────────────────────────────
 with st.sidebar:
-    st.header("🦺 작업허가 검토 에이전트")
+    st.header("🦺 AI 안전작업허가 검토관")
     st.caption("정비·화기작업 · 가상 사업장 '가온정밀'")
     st.radio("단계", PAGES, key="page", label_visibility="collapsed")
     st.divider()
@@ -246,6 +247,12 @@ def page_request():
     show = {k: v for k, v in req.items() if not k.startswith("_") and k not in ("request_text",)}
     with st.expander("구조화 필드 (엔진 입력)", expanded=False):
         st.json(show)
+    if req.get("_out_of_scope"):
+        st.error("허가 검토 대상이 아닙니다: " + req["_out_of_scope"])
+        return
+    if req.get("start") and req["start"] < now():
+        st.warning(f"작업 시작 시각({req['start'][11:]})이 현재 시각({now()[11:]})보다 이릅니다. "
+                   "허가 없이 이미 작업을 시작했거나 시각을 잘못 적은 것일 수 있습니다. 신청 내용을 확인하세요.")
 
     qs = p.pending_questions(req)
     if qs:
@@ -310,16 +317,19 @@ def question_widget(q, label, ctx):
     if t == "choice":
         return st.selectbox(label, q["choices"], key=f"q_{f}")
     if t == "equipment":
-        return st.selectbox(label, [e["id"] for e in ctx["equipment"]], key=f"q_{f}")
+        names = {e["id"]: f"{e['id']} {e['name']}" for e in ctx["equipment"]} | {
+            P.NO_EQUIPMENT: "대상 설비 없음 (설비 정비가 아님)"}
+        return st.selectbox(label, list(names), key=f"q_{f}", format_func=names.get)
     if t == "zone":
-        return st.selectbox(label, [z["id"] for z in ctx["zones"]], key=f"q_{f}")
+        names = {z["id"]: f"{z['id']} {z['name']}" for z in ctx["zones"]}
+        return st.selectbox(label, list(names), key=f"q_{f}", format_func=names.get)
     if t == "crew":
         others = {w["id"]: f"{w['name']} ({w['role']})" for w in ctx["workers"] if w["id"] != ss.requester}
         return st.multiselect(label, list(others), default=[d for d in q.get("default") or [] if d in others],
                               format_func=others.get, key=f"q_{f}")
     if t == "worker_or_none":
         opts = ["없음"] + [w["id"] for w in ctx["workers"]]
-        names = {w["id"]: w["name"] for w in ctx["workers"]} | {"없음": "없음 / Không có"}
+        names = {w["id"]: w["name"] for w in ctx["workers"]} | {"없음": "없음 / Không có / None"}
         return st.selectbox(label, opts, key=f"q_{f}", format_func=names.get)
     return st.text_input(label, key=f"q_{f}")
 
@@ -492,7 +502,7 @@ def page_sign():
     status_banner(ss.get("final") or j.status)
     ctx = p.context()
     names = {w["id"]: f"{w['name']} ({w['role']}){' · 서명권자' if w['can_sign_permit'] else ''}" for w in ctx["workers"]}
-    signer = st.selectbox("서명자", list(names), index=1, format_func=names.get)
+    signer = st.selectbox("서명자", list(names), index=1, format_func=names.get, disabled="final" in ss)
 
     if "final" not in ss:
         if any(r.rule_id == "PLAN" and r.outcome == "human_review" for r in j.results):
@@ -512,9 +522,13 @@ def page_sign():
                         res[r.rule_id] = {"decision": "accept" if d.startswith("수용") else "reject", "note": note}
         if j.status == "conditional":
             st.warning("조건부 항목이 남아 있어 서명할 수 없습니다. ②에서 조치 후 재검증하세요.")
-        if st.button("✍ 서명", type="primary", disabled=j.status == "conditional"):
+        if j.status == "rejected":
+            st.info("반려 판정입니다. 서명하면 반려가 확정되고 허가서는 발행되지 않습니다. 대안을 반영해 새로 신청하세요.")
+        label = "✍ 반려 확정 서명" if j.status == "rejected" else "✍ 서명 (허가서 발행)"
+        if st.button(label, type="primary", disabled=j.status == "conditional"):
             try:
-                ss.final = p.judge.sign(j, signer, now(), res)
+                ss.signed_by, ss.signed_at = signer, now()
+                ss.final = p.judge.sign(j, signer, ss.signed_at, res)
                 ss.docs = p.documents(j, req, ss.final, res)
                 st.rerun()
             except (PermissionError, ValueError) as e:
@@ -523,9 +537,9 @@ def page_sign():
 
     docs = ss.docs
     st.subheader("허가서")
-    signer_name = next(w["name"] for w in ctx["workers"] if w["id"] == signer)
+    signer_name = next(w["name"] for w in ctx["workers"] if w["id"] == ss.signed_by)
     signed = docs["permit_md"].replace("- 허가권자: ________ (서명 전까지 효력 없음)",
-                                       f"- 허가권자: {signer_name} (서명 {now().replace('T', ' ')})")
+                                       f"- 허가권자: {signer_name} (서명 {ss.signed_at.replace('T', ' ')})")
     st.markdown(md(signed))
     st.download_button("허가서 내려받기 (.md)", signed, file_name=f"{j.permit_id}.md")
     if ss.final == "issued":

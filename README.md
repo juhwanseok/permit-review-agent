@@ -7,6 +7,21 @@
 - 개발 기간: 2026-09-29 ~ 10-06
 - **한계와 법적 근거가 없는 값은 [LIMITATIONS.md](LIMITATIONS.md)에 ID별로 정리했습니다.**
 
+## 제출물 (2026-10-06 최종 제출본)
+
+| # | 문서 | 파일 |
+|---|---|---|
+| 1 | 개발완료보고서 (표지 + A4 5쪽) | [docs/submission/1_개발완료보고서.pdf](docs/submission/1_개발완료보고서.pdf) |
+| 2 | AI Agent 기술설명서 (1쪽) | [docs/submission/2_AI_Agent_기술설명서.pdf](docs/submission/2_AI_Agent_기술설명서.pdf) |
+| 3 | 소스코드 | 이 저장소 |
+| 4 | 시연영상 (2분 52초, 자막·무음) | [docs/submission/4_시연영상.mp4](docs/submission/4_시연영상.mp4) |
+| 5 | 발표자료 (10장) | [docs/submission/5_발표자료.pdf](docs/submission/5_발표자료.pdf) |
+
+팀: 신호처리연구실 (국립창원대학교 정보통신공학과) · 석주환(대표) · 하형준 · 박강현
+
+> **커밋 번호 안내:** 이 공개 저장소는 개발 저장소에서 커밋 작성자 이메일만 바꿔 올린 것이라 커밋 번호가 다릅니다. 코드 내용은 같습니다.
+> 제출 문서에 적힌 기준 커밋 `ce11643`은 이 저장소의 `6749eca`입니다. 전체 대응: `fe0b10c→56facbb`, `1b8cab2→52a51df`, `7a3e71b→003dd22`, `fdcacf8→8947f0d`, `b705247→e608577`, `16b151b→46a7afe`, `2c1da48→9e566f1`, `b91f4b3→01eaf60`.
+
 ## 빠른 실행
 
 필요한 것: Python 3.11 이상(개발·검증은 3.14.6에서 함). LLM을 쓰려면 Ollama와 `gemma4:31b` 모델(24GB급 GPU)이 필요합니다.
